@@ -18,44 +18,44 @@ class TestActor:
     def getPos(self):
         return self.pos
 
+ego_vehicle = None
+nonEgoActors = None
+nonEgoVehicles = None
+
 def main():
     
     client = carla.Client('localhost', 2000)
     world = client.get_world()
     if args.serverless:
         setupForTest(world)
-    actors = world.get_actors()
-    vehicles = actors.filter('*vehicle*')
+    nonEgoActors = world.get_actors()
+    nonEgoVehicles = nonEgoActors.filter('*vehicle*')
 
-    ego_vehicle = None
-    for i in range(len(vehicles)):
-        if vehicles[i].attributes['role_name'] == 'ego':
-            ego_vehicle = vehicles[i]
+    for i in range(len(nonEgoActors)):
+        if nonEgoActors[i].attributes['role_name'] == 'ego':
+            ego_vehicle = nonEgoActors[i]
             break
     if ego_vehicle == None:
-        print("Couldn't find ego vehicle in",len(vehicles),"vehicles searched")
+        print("Couldn't find ego vehicle in",len(nonEgoVehicles),"vehicles searched")
         return -1
     
-    testScore = 0
+    nonEgoActors = [x for x in nonEgoActors if x.id != ego_vehicle.id]
+    nonEgoVehicles = [x for x in nonEgoVehicles if x.id != ego_vehicle.id]
     
-    x = TestActor()
-    y = TestActor()
-    y.pos = 30
+    testScore = 0
     
     assertions = [
         Assertion(126,
                 "Maintain a safe stopping distance",
-                (lambda: x.getPos()-y.getPos() < stoppingDistance(30) + 10),
-                (lambda: x.getPos()-y.getPos() > stoppingDistance(30))
+                (lambda: any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(30) + 10) for t in nonEgoVehicles)),
+                (lambda: any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(30)) for t in nonEgoVehicles))
                 )
     ]
 
     for i in range(30):
-        x.pos += 1
         scoreChange = assertionCheckTick(assertions)
         testScore += scoreChange
     print("done")
-
 
 def setupForTest(world):
     ego = carla.Actor("vehicle.audi.a2",carla.Location(0,0,0))
@@ -79,6 +79,7 @@ def assertionCheckTick(assertions):
     assertions[:] = [x for x in assertions if not x.violated]
     return scoreChange
 
+#TODO: redo with transform vectors
 def locationWithinBoxInFrontOfVehicle(fromVehicle: carla.Actor,location: carla.Location,boxLength: float):
     extents = fromVehicle.bounding_box.extent
     centre = fromVehicle.get_location

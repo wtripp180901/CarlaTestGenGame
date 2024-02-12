@@ -24,6 +24,8 @@ class Actor:
 class ActorList:
     def __init__(self,actors):
         self.actors = actors
+    def __len__(self):
+        return len(self.actors)
     def filter(self,pattern):
         return [n for n in self.actors if fnmatch.fnmatch(n.type_id,pattern)]
 
