@@ -11,6 +11,8 @@ else:
 from assertion import Assertion
 from tags import *
 import shapely.geometry
+import random
+import time
 
 class TestActor:
     def __init__(self):
@@ -26,13 +28,12 @@ def main():
     
     client = carla.Client('localhost', 2000)
     world = client.get_world()
-    if args.serverless:
-        setupForTest(world)
+    setupForTest(world)
     nonEgoActors = world.get_actors()
     nonEgoVehicles = nonEgoActors.filter('*vehicle*')
 
     for i in range(len(nonEgoActors)):
-        if nonEgoActors[i].attributes['role_name'] == 'ego':
+        if nonEgoActors[i].attributes.get('role_name') == 'hero':
             ego_vehicle = nonEgoActors[i]
             break
     if ego_vehicle == None:
@@ -47,21 +48,24 @@ def main():
     assertions = [
         Assertion(126,
                 "Maintain a safe stopping distance",
-                (lambda: any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(30) + 10) for t in nonEgoVehicles)),
-                (lambda: any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(30)) for t in nonEgoVehicles))
+                (lambda: any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(t.get_velocity().length()) + 10,world) for t in nonEgoVehicles)),
+                (lambda: not any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(t.get_velocity().length()),world) for t in nonEgoVehicles))
                 )
     ]
 
-    for i in range(30):
+    while True:
         scoreChange = assertionCheckTick(assertions)
         testScore += scoreChange
-    print("done")
+        time.sleep(0.1)
+
 
 def setupForTest(world):
-    ego = carla.Actor("vehicle.audi.a2",carla.Location(0,0,0))
-    ego.attributes["role_name"] = "ego"
-    world.actors.append(ego)
-    world.actors.append(carla.Actor("vehicle.audi.etron",carla.Location(0,0,5)))
+    ego_bp = world.get_blueprint_library().filter("vehicle.audi.a2")[0]
+    ego_bp.set_attribute('role_name', 'hero')
+    ego = world.spawn_actor(ego_bp, world.get_map().get_spawn_points()[0])
+    world.get_spectator().set_transform(ego.get_transform())
+    world.spawn_actor(world.get_blueprint_library().filter("vehicle.audi.etron")[0], carla.Transform(ego.get_transform().location + carla.Vector3D(50,0,0),ego.get_transform().rotation))
+    ego.apply_control(carla.VehicleControl(throttle=1.0))
 
 def assertionCheckTick(assertions):
     scoreChange = 0
@@ -79,30 +83,34 @@ def assertionCheckTick(assertions):
     assertions[:] = [x for x in assertions if not x.violated]
     return scoreChange
 
-#TODO: redo with transform vectors
-def locationWithinBoxInFrontOfVehicle(fromVehicle: carla.Actor,location: carla.Location,boxLength: float):
+def locationWithinBoxInFrontOfVehicle(fromVehicle: carla.Actor,location: carla.Location,boxLength: float,world):
+    
     extents = fromVehicle.bounding_box.extent
-    centre = fromVehicle.get_location
-    centre = carla.Vector3D(centre.x,centre.y,centre.z)
-    velocityLength = fromVehicle.get_velocity().length()
-    if velocityLength < 0.00001:
-        return False
-    directionVector = fromVehicle.get_velocity() / scalarToVector(velocityLength)
-    perpVector = directionVector.cross(carla.Vector3D(0,1,0))
-    boxPoints = []
-    boxPoints.append(centre + scalarToVector(extents.z) * directionVector + scalarToVector(extents.x) * perpVector)
-    boxPoints.append(centre + scalarToVector(extents.z) * directionVector - scalarToVector(extents.x) * perpVector)
-    boxPoints.append(boxPoints[0] + directionVector * scalarToVector(boxLength))
-    boxPoints.append(boxPoints[1] + directionVector * scalarToVector(boxLength))
-    boxPoints = [(b.x,b.z) for b in boxPoints]
+    transform = fromVehicle.get_transform()
+    centre = transform.location
+    #centre = carla.Vector3D(centre.x,centre.y,centre.z)
 
-    box = shapely.Polygon(boxPoints)
-    point = shapely.Point(location.x,location.z)
-    return box.contains(point)
+    directionVector = transform.get_forward_vector()
+    #perpVector = transform.get_right_vector()
+
+    # boxPoints = []
+    # boxPoints.append(centre + extents.x * directionVector + extents.y * perpVector)
+    # boxPoints.append(centre + extents.x * directionVector - extents.y * perpVector)
+    # boxPoints.append(boxPoints[0] + directionVector * boxLength)
+    # boxPoints.append(boxPoints[1] + directionVector * boxLength)
+    # boxPoints = [(b.x,b.y) for b in boxPoints]
+
+    # box = shapely.Polygon(boxPoints)
+    # point = shapely.Point(location.x,location.z)
+    # return box.contains(point)
+
+    box = carla.BoundingBox(carla.Vector3D(0,0,0),
+                            carla.Vector3D((boxLength/2),extents.y,extents.z))
+    return box.contains(location,carla.Transform(centre + directionVector * (boxLength/2),transform.rotation))
                    
 
-def scalarToVector(scalar: float):
-    return carla.Vector3D(scalar,scalar,scalar)
+# def scalarToVector(scalar: float):
+#     return carla.Vector3D(scalar,scalar,scalar)
 
 def stoppingDistance(speed):
     # Stopping distance = thinking distance + braking distance
