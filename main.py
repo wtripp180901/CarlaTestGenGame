@@ -3,15 +3,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-s","--serverless",default=False)
 args = parser.parse_args()
 
-if args.serverless:
-    import carlaSpoofer as carla
-else:
-    import carla
-
+import carla
 from assertion import Assertion
 from tags import *
 import random
 import time
+import test_setup
 
 class TestActor:
     def __init__(self):
@@ -19,82 +16,72 @@ class TestActor:
     def getPos(self):
         return self.pos
 
-ego_vehicle = None
-nonEgoActors = None
-nonEgoVehicles = None
-
 def main():
+    
+    ego_vehicle = None
+    non_ego_actors = None
+    non_ego_vehicles = None
     
     client = carla.Client('localhost', 2000)
     world = client.get_world()
-    setupForTest(world)
+    test_setup.setupForTest("stationaryCollision",world)
     
-    testScore = 0
+    test_score = 0
     
-    #TODO: find way of making scope consistent for callables, maybe implement lambda wrapper which takes vehicle lists as parameters
     assertions = [
         Assertion(126,
                 "Maintain a safe stopping distance",
-                (lambda: any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(ego_vehicle.get_velocity().length()) + 5,world) for t in nonEgoVehicles)),
-                (lambda: not any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(ego_vehicle.get_velocity().length()),world) for t in nonEgoVehicles))
+                (lambda: any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(ego_vehicle.get_velocity().length()) + 5,world) for t in non_ego_vehicles)),
+                (lambda: not any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(ego_vehicle.get_velocity().length()),world) for t in non_ego_vehicles))
                 )
     ]
 
     while True:
-        nonEgoActors = world.get_actors()
-        nonEgoVehicles = nonEgoActors.filter('*vehicle*')
+        non_ego_actors = world.get_actors()
+        non_ego_vehicles = non_ego_actors.filter('*vehicle*')
 
-        for i in range(len(nonEgoActors)):
-            if nonEgoActors[i].attributes.get('role_name') == 'hero':
-                ego_vehicle = nonEgoActors[i]
+        for i in range(len(non_ego_actors)):
+            if non_ego_actors[i].attributes.get('role_name') == 'hero':
+                ego_vehicle = non_ego_actors[i]
                 break
         if ego_vehicle == None:
-            print("Couldn't find ego vehicle in",len(nonEgoVehicles),"vehicles searched")
+            print("Couldn't find ego vehicle in",len(non_ego_vehicles),"vehicles searched")
             return -1
         
-        nonEgoActors = [x for x in nonEgoActors if x.id != ego_vehicle.id]
-        nonEgoVehicles = [x for x in nonEgoVehicles if x.id != ego_vehicle.id]
+        non_ego_actors = [x for x in non_ego_actors if x.id != ego_vehicle.id]
+        non_ego_vehicles = [x for x in non_ego_vehicles if x.id != ego_vehicle.id]
         
-        scoreChange = assertionCheckTick(assertions)
-        testScore += scoreChange
+        score_change = assertionCheckTick(assertions)
+        test_score += score_change
         time.sleep(0.1)
 
-
-def setupForTest(world):
-    ego_bp = world.get_blueprint_library().filter("vehicle.audi.a2")[0]
-    ego_bp.set_attribute('role_name', 'hero')
-    ego = world.spawn_actor(ego_bp, world.get_map().get_spawn_points()[0])
-    world.get_spectator().set_transform(ego.get_transform())
-    world.spawn_actor(world.get_blueprint_library().filter("vehicle.audi.etron")[0], carla.Transform(ego.get_transform().location + carla.Vector3D(100,0,0),ego.get_transform().rotation))
-    ego.apply_control(carla.VehicleControl(throttle=1.0))
-
 def assertionCheckTick(assertions):
-    scoreChange = 0
+    score_change = 0
     for i in range(len(assertions)):
         if assertions[i].IsActive(RainTags.NONE):
             assertions[i].Check()
             if assertions[i].violated:
                 if assertions[i].vacuous:
                     print("Unfair test:",assertions[i].description,"-1")
-                    scoreChange -= 1
+                    score_change -= 1
                 else:
                     print("Bug found:",assertions[i].description,"+1")
-                    scoreChange += 1
+                    score_change += 1
 
     assertions[:] = [x for x in assertions if not x.violated]
-    return scoreChange
+    return score_change
 
-def locationWithinBoxInFrontOfVehicle(fromVehicle: carla.Actor,location: carla.Location,boxLength: float,world):
+def locationWithinBoxInFrontOfVehicle(from_vehicle: carla.Actor,location: carla.Location,box_length: float,world):
     
-    extents = fromVehicle.bounding_box.extent
-    transform = fromVehicle.get_transform()
+    extents = from_vehicle.bounding_box.extent
+    transform = from_vehicle.get_transform()
     centre = transform.location
     directionVector = transform.get_forward_vector()
 
     box = carla.BoundingBox(carla.Vector3D(0,0,0),
-                            carla.Vector3D((boxLength/2),extents.y,extents.z))
-    world.debug.draw_box(carla.BoundingBox(centre + directionVector * (boxLength/2),carla.Vector3D((boxLength/2),extents.y,extents.z)),transform.rotation,life_time=0.1)
-    return box.contains(location,carla.Transform(centre + directionVector * (boxLength/2),transform.rotation))
+                            carla.Vector3D((box_length/2),extents.y,extents.z))
+    world.debug.draw_box(carla.BoundingBox(centre + directionVector * (box_length/2),carla.Vector3D((box_length/2),extents.y,extents.z)),transform.rotation,life_time=0.1)
+    return box.contains(location,carla.Transform(centre + directionVector * (box_length/2),transform.rotation))
                    
 
 def stoppingDistance(speed):
