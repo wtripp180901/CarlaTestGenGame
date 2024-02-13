@@ -6,6 +6,7 @@ from tags import *
 import random
 import time
 import test_setup
+import numpy
 
 class TestActor:
     def __init__(self):
@@ -24,8 +25,12 @@ def main():
     non_ego_vehicles = None
     
     client = carla.Client('localhost', 2000)
-    world = client.get_world()
-    test_setup.setupForTest(args.scenario,world)
+    client.set_timeout(10)
+    world = test_setup.setupForTest(args.scenario,client)
+    map = world.get_map()
+
+    for i,s in enumerate(world.get_map().get_spawn_points()):
+        world.debug.draw_string(s.location + carla.Vector3D(0,0,2),str(i),life_time=10)
     
     test_score = 0
     
@@ -42,6 +47,8 @@ def main():
                 )
     ]
 
+    has_junction = False
+    junction_status = JunctionStates.NONE
     while True:
         non_ego_actors = world.get_actors()
         non_ego_vehicles = non_ego_actors.filter('*vehicle*')
@@ -57,8 +64,16 @@ def main():
         non_ego_actors = [x for x in non_ego_actors if x.id != ego_vehicle.id]
         non_ego_vehicles = [x for x in non_ego_vehicles if x.id != ego_vehicle.id]
 
-        ego_vehicle
-        
+        current_junction = currentJunction(ego_vehicle,map)
+        # Might cause issues for double junctions
+        if current_junction == None and has_junction:
+            has_junction = False
+            junction_status = JunctionStates.NONE
+        if not has_junction and current_junction != None:
+            has_junction = True
+            junction_status = getJunctionStatus(ego_vehicle,current_junction)
+            print(junction_status)
+            
         score_change = assertionCheckTick(assertions)
         test_score += score_change
         time.sleep(0.1)
@@ -96,6 +111,47 @@ def stoppingDistance(speed):
     # Stopping distance = thinking distance + braking distance
     # DVSA formulae: Thinking distance = 0.3 * speed, braking distance = 0.015 * speed^2
     return 0.3 * speed + speed * speed * 0.015
+
+class JunctionStates(Enum):
+    T_ON_MAJOR = 0
+    T_ON_MINOR = 1
+    UNKNOWN = 2
+    NONE = 3
+
+def currentJunction(ego,map):
+    ego_waypoint = map.get_waypoint(ego.get_location())
+    return ego_waypoint.get_junction()
+
+
+def getJunctionStatus(ego,junction):
+    
+    waypoints = junction.get_waypoints(carla.LaneType.Driving)
+    entrypoints = [t[0] for t in waypoints]
+    distances = [(ego.get_transform().location - e.transform.location).length() for e in entrypoints]
+    closestInd = numpy.argmin(distances)
+    entrypoint = entrypoints[closestInd]
+
+    straight_path = False
+    #TODO: distinguish between left and right somehow
+    other_path = False
+    location = entrypoint.transform.location
+    destinations_from_entrypoint = [w[1].transform.location for w in waypoints if (w[0].transform.location - location).length() < 0.01]
+    direction_vector = location - entrypoint.previous(10)[0].transform.location
+    direction_vector = direction_vector / direction_vector.length()
+    for d in destinations_from_entrypoint:
+        if (d - (location + direction_vector * (d - location).length())).length() < 1:
+            straight_path = True
+        else:
+            other_path = True
+    if straight_path and other_path:
+        return JunctionStates.T_ON_MAJOR
+    elif other_path:
+        return JunctionStates.T_ON_MINOR
+    else:
+        return JunctionStates.UNKNOWN
+        
+
+            
 
 if __name__ == '__main__':
     main()
