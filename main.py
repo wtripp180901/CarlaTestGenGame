@@ -1,7 +1,4 @@
 import argparse
-parser = argparse.ArgumentParser()
-parser.add_argument("-s","--serverless",default=False)
-args = parser.parse_args()
 
 import carla
 from assertion import Assertion
@@ -17,6 +14,10 @@ class TestActor:
         return self.pos
 
 def main():
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-s","--scenario",default="none")
+    args = parser.parse_args()
     
     ego_vehicle = None
     non_ego_actors = None
@@ -24,7 +25,7 @@ def main():
     
     client = carla.Client('localhost', 2000)
     world = client.get_world()
-    test_setup.setupForTest("stationaryCollision",world)
+    test_setup.setupForTest(args.scenario,world)
     
     test_score = 0
     
@@ -33,6 +34,11 @@ def main():
                 "Maintain a safe stopping distance",
                 (lambda: any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(ego_vehicle.get_velocity().length()) + 5,world) for t in non_ego_vehicles)),
                 (lambda: not any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(ego_vehicle.get_velocity().length()),world) for t in non_ego_vehicles))
+                ),
+        Assertion(124,
+                "You must not exceed maximum speed limits",
+                (lambda: ego_vehicle.get_speed_limit() != None),
+                (lambda: ego_vehicle.get_velocity().length() <= ego_vehicle.get_speed_limit())
                 )
     ]
 
@@ -50,6 +56,8 @@ def main():
         
         non_ego_actors = [x for x in non_ego_actors if x.id != ego_vehicle.id]
         non_ego_vehicles = [x for x in non_ego_vehicles if x.id != ego_vehicle.id]
+
+        ego_vehicle
         
         score_change = assertionCheckTick(assertions)
         test_score += score_change

@@ -14,4 +14,5 @@ test_scenarios = {
 
 def setupForTest(test_name: str,world: carla.World):
     test = test_scenarios.get(test_name)
-    test(world)
+    if test != None:
+        test(world)
