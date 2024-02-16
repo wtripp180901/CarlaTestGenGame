@@ -3,6 +3,7 @@ import argparse
 import carla
 from assertion import Assertion
 from tags import *
+from coverage import *
 import random
 import time
 import test_setup
@@ -34,7 +35,7 @@ def main():
     
     test_score = 0
     
-    assertions = [
+    active_assertions = [
         Assertion(126,
                 "Maintain a safe stopping distance",
                 (lambda: any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(ego_vehicle.get_velocity().length()) + 5,world) for t in non_ego_vehicles)),
@@ -54,8 +55,11 @@ def main():
         )
     ]
 
+    coverage = Coverage(active_assertions,CoverageVariableSet([(CoverageVariable.RAIN,RainTags)],[(CoverageVariable.NUM_ACTORS,50)]))
+
     has_junction = False
     junction_status = JunctionStates.NONE
+    triggered_assertions = []
     while True:
         non_ego_actors = world.get_actors()
         non_ego_vehicles = non_ego_actors.filter('*vehicle*')
@@ -81,7 +85,11 @@ def main():
             junction_status = getJunctionStatus(ego_vehicle,current_junction)
             print(junction_status)
 
-        score_change = assertionCheckTick(assertions)
+        score_change, new_triggered_assertions = assertionCheckTick(active_assertions)
+        if len(new_triggered_assertions) > 0:
+            coverage.add_covered([(CoverageVariable.RAIN,RainTags.NONE)],[(CoverageVariable.NUM_ACTORS,2)],[a.ruleNumber for a in new_triggered_assertions])
+            coverage.print_coverage()
+        triggered_assertions.extend(new_triggered_assertions)
         test_score += score_change
         time.sleep(0.1)
 
@@ -98,8 +106,9 @@ def assertionCheckTick(assertions):
                     print("Bug found:",assertions[i].description,"+1")
                     score_change += 1
 
+    triggered_assertions = [x for x in assertions if x.violated]
     assertions[:] = [x for x in assertions if not x.violated]
-    return score_change
+    return score_change, triggered_assertions
 
 def performingSafeLeftTurn(ego_vehicle,vehicle):
     return ego_vehicle.get_control().steer < 0 and incomingVehicleAllowLeftTurn(ego_vehicle,vehicle)
