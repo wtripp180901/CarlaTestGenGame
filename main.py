@@ -30,7 +30,7 @@ def main():
     map = world.get_map()
 
     for i,s in enumerate(world.get_map().get_spawn_points()):
-        world.debug.draw_string(s.location + carla.Vector3D(0,0,2),str(i),life_time=10)
+        world.debug.draw_string(s.location + carla.Vector3D(0,0,2),str(i),life_time=20)
     
     test_score = 0
     
@@ -48,7 +48,9 @@ def main():
         Assertion(170,
                   "Give way to vehicles on major road",
                   lambda: junction_status == JunctionStates.T_ON_MINOR and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) for v in non_ego_vehicles),
-                  lambda: not (junction_status == JunctionStates.T_ON_MINOR and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) for v in non_ego_vehicles)) or ego_vehicle.get_velocity().length() < 0.1
+                  lambda: not (junction_status == JunctionStates.T_ON_MINOR 
+                               and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) and not performingSafeLeftTurn(ego_vehicle,v) for v in non_ego_vehicles)) 
+                               or ego_vehicle.get_velocity().length() < 0.1
         )
     ]
 
@@ -98,6 +100,14 @@ def assertionCheckTick(assertions):
 
     assertions[:] = [x for x in assertions if not x.violated]
     return score_change
+
+def performingSafeLeftTurn(ego_vehicle,vehicle):
+    return ego_vehicle.get_control().steer < 0 and incomingVehicleAllowLeftTurn(ego_vehicle,vehicle)
+
+# Returns true if oncoming vehicle is going right (assuming in right lane) or vehicle is parked at junction
+def incomingVehicleAllowLeftTurn(ego_vehicle,vehicle):
+    return ego_vehicle.get_transform().get_forward_vector().dot(vehicle.get_transform().get_forward_vector()) < 0 or vehicle.get_velocity().length() < 0
+    
 
 def vehicleInJunction(vehicle: carla.Actor,junction: carla.Junction,extentMargins: carla.Vector3D = carla.Vector3D(0,0,5)):
     bb = junction.bounding_box
