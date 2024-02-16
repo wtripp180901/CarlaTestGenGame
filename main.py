@@ -44,7 +44,12 @@ def main():
                 "You must not exceed maximum speed limits",
                 (lambda: ego_vehicle.get_speed_limit() != None),
                 (lambda: ego_vehicle.get_velocity().length() <= ego_vehicle.get_speed_limit())
-                )
+                ),
+        Assertion(170,
+                  "Give way to vehicles on major road",
+                  lambda: junction_status == JunctionStates.T_ON_MINOR and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) for v in non_ego_vehicles),
+                  lambda: not (junction_status == JunctionStates.T_ON_MINOR and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) for v in non_ego_vehicles)) or ego_vehicle.get_velocity().length() < 0.1
+        )
     ]
 
     has_junction = False
@@ -73,7 +78,7 @@ def main():
             has_junction = True
             junction_status = getJunctionStatus(ego_vehicle,current_junction)
             print(junction_status)
-            
+
         score_change = assertionCheckTick(assertions)
         test_score += score_change
         time.sleep(0.1)
@@ -93,6 +98,13 @@ def assertionCheckTick(assertions):
 
     assertions[:] = [x for x in assertions if not x.violated]
     return score_change
+
+def vehicleInJunction(vehicle: carla.Actor,junction: carla.Junction,extentMargins: carla.Vector3D = carla.Vector3D(0,0,5)):
+    bb = junction.bounding_box
+    nbb = carla.BoundingBox(carla.Vector3D(0,0,0),bb.extent + extentMargins)
+    if nbb.contains(vehicle.get_transform().location + carla.Vector3D(0,0,extentMargins.z/2),carla.Transform(bb.location,bb.rotation)):
+        return True
+    return False
 
 def locationWithinBoxInFrontOfVehicle(from_vehicle: carla.Actor,location: carla.Location,box_length: float,world):
     

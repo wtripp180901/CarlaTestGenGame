@@ -11,7 +11,10 @@ def stationaryCollision(client: carla.Client):
     return world
 
 def TJunctionMinor(client: carla.Client):
-    return TJunction(client,0)
+    world = TJunction(client,0)
+    major_vehicle = world.spawn_actor(world.get_blueprint_library().filter("vehicle.audi.etron")[0],world.get_map().get_spawn_points()[42])
+    major_vehicle.apply_control(carla.VehicleControl(throttle=0.65))
+    return world
 
 def TJunctionMajor(client: carla.Client):
     return TJunction(client,42)
@@ -21,7 +24,7 @@ def TJunction(client: carla.Client,spawnNumber: int):
     ego_bp = world.get_blueprint_library().filter("vehicle.audi.a2")[0]
     ego_bp.set_attribute('role_name', 'hero')
     ego = world.spawn_actor(ego_bp, world.get_map().get_spawn_points()[spawnNumber])
-    ego.apply_control(carla.VehicleControl(throttle=0.5))
+    ego.apply_control(carla.VehicleControl(throttle=1))
     world.get_spectator().set_transform(ego.get_transform())
     return world
 
