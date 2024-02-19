@@ -9,6 +9,7 @@ import time
 import test_setup
 import numpy
 import score_writer
+from world_state import WorldState
 
 class TestActor:
     def __init__(self):
@@ -29,6 +30,7 @@ def main():
     client = carla.Client('localhost', 2000)
     client.set_timeout(10)
     world = test_setup.setupForTest(args.scenario,client)
+    world_state = WorldState(world)
     map = world.get_map()
 
     for i,s in enumerate(world.get_map().get_spawn_points()):
@@ -54,7 +56,7 @@ def main():
         )
     ]
 
-    coverage = Coverage(active_assertions,CoverageVariableSet([(CoverageVariable.RAIN,RainTags)],[(CoverageVariable.NUM_ACTORS,50)]))
+    coverage = Coverage(active_assertions,world_state.coverage_space)
 
     has_junction = False
     junction_status = JunctionStates.NONE
@@ -86,7 +88,8 @@ def main():
 
         score_change, new_triggered_assertions = assertionCheckTick(active_assertions)
         if len(new_triggered_assertions) > 0:
-            coverage.add_covered([(CoverageVariable.RAIN,RainTags.NONE)],[(CoverageVariable.NUM_ACTORS,2)],[a.ruleNumber for a in new_triggered_assertions])
+            enumed_vars, quant_vars = world_state.get_coverage_state()
+            coverage.add_covered(enumed_vars,quant_vars,[a.ruleNumber for a in new_triggered_assertions])
         triggered_assertions.extend(new_triggered_assertions)
         score_writer.add_and_update_scenario_score(score_change)
         time.sleep(0.1)

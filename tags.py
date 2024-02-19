@@ -2,9 +2,10 @@ from enum import Enum
 
 class RainTags(Enum):
     NONE = 1
-    LIGHT = 2
-    MID = 3
-    HEAVY = 4
+    VERY_LIGHT = 2
+    LIGHT = 3
+    MID = 4
+    HEAVY = 5
 
 class TagSet:
     def __init__(self,tags,allRequired: bool):

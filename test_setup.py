@@ -58,7 +58,7 @@ def reversed_spawn(spawn_point: carla.Transform):
     return carla.Transform(spawn_point.location, carla.Rotation(spawn_point.rotation.pitch,spawn_point.rotation.yaw + 180,spawn_point.rotation.roll))
 
 test_scenarios = {
-    "stationaryCollision" : stationaryCollision,
+    "StationaryCollision" : stationaryCollision,
     "TJunctionMinorRoad": TJunctionMinorUnsafe,
     "TJunctionSafeLeft": TJunctionMinorSafe,
     "TJunctionMajorRoad": TJunctionMajor,

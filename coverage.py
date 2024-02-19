@@ -2,7 +2,7 @@ import numpy
 from tags import *
 import assertion
 from enum import Enum
-from typing import List, Dict
+from typing import List, Tuple
 import os
 import csv
 
@@ -10,12 +10,14 @@ coverage_file_path = "out/coverage.csv"
 
 class CoverageVariable(Enum):
     RAIN = 0
-    NUM_ACTORS = 1
+    NUM_VEHICLES = 1
+    NUM_PEDESTRIANS = 2
+    GROUND_WATER = 3
 
 class CoverageVariableSet:
     # enumerations should be of type List[(CoverageVariable,Enum)] specifying the variable key and type of enum expected
     # hyperparams should be of type List[(CoverageVariable,int)] specifying the variable key and max value
-    def __init__(self,enumerations,hyperparams):
+    def __init__(self,enumerations: List[Tuple[CoverageVariable,Enum]],hyperparams: List[Tuple[CoverageVariable,int]]):
         self.enumerations = enumerations
         self.hyperparams = hyperparams
         self.macro_space_size = 1
@@ -24,7 +26,10 @@ class CoverageVariableSet:
         for max_val in [v[1] for v in hyperparams]:
             self.macro_space_size *= max_val
 
-    def get_coverage_entry_key(self,parameterised_enumerations,parameterised_hyperparams):
+    def get_enum_of_variable(self,variable: CoverageVariable):
+        return next(x[1] for x in self.enumerations if x[0] == variable)
+
+    def get_coverage_entry_key(self,parameterised_enumerations: List[Tuple[CoverageVariable,Enum]],parameterised_hyperparams: List[Tuple[CoverageVariable,int]]):
         entry = [None for _ in range(len(self.enumerations + self.hyperparams))]
         assert(len(parameterised_enumerations) == len(self.enumerations))
         assert(len(parameterised_hyperparams) == len(self.hyperparams))
@@ -54,10 +59,6 @@ class Coverage:
             self._covered_cases = {}
             self.write_coverage()
 
-    variable_enum_map = {
-        CoverageVariable.RAIN: RainTags
-    }
-
     def get_total_size(self):
         return self.coverage_variable_set.macro_space_size * self.micro_bin_count
     
@@ -74,7 +75,7 @@ class Coverage:
     
     # enumerations should be of type List[(CoverageVariable,Enum)] (should be concrete Enum e.g RainTags)
     # hyperparams should be of type List[(CoverageVariable,int)] (actual hyperparam not max value)
-    def add_covered(self,enumerated_vars,hyperparam_vars,covered_assertion_ids: List[int]):
+    def add_covered(self,enumerated_vars: List[Tuple[CoverageVariable,Enum]],hyperparam_vars: List[Tuple[CoverageVariable,int]],covered_assertion_ids: List[int]):
         key = self.coverage_variable_set.get_coverage_entry_key(enumerated_vars,hyperparam_vars)
         if not (key in self._covered_cases):
             self._covered_cases[key] = [False for _ in range(len(self.micro_bin_ids))]
@@ -121,7 +122,7 @@ class Coverage:
         if cell.isdigit():
             return int(cell)
         else:
-            return self.variable_enum_map[CoverageVariable[header_var]][cell]
+            return self.coverage_variable_set.get_enum_of_variable(CoverageVariable[header_var])[cell]
 
     def get_csv_header(self,include_micro_bins=True):
         fieldnames = [x[0].name for x in self.coverage_variable_set.enumerations]
