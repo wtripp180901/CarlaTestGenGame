@@ -78,9 +78,15 @@ class Coverage:
         key = self.coverage_variable_set.get_coverage_entry_key(enumerated_vars,hyperparam_vars)
         if not (key in self._covered_cases):
             self._covered_cases[key] = [False for _ in range(len(self.micro_bin_ids))]
+        new_case = False
         for id in covered_assertion_ids:
+            if self._covered_cases[key][self.micro_bin_ids.index(id)] == False:
+                new_case = True
             self._covered_cases[key][self.micro_bin_ids.index(id)] = True
-        self.write_coverage()
+        if new_case:
+            print("New case found!")
+            self.write_coverage()
+            self.print_coverage()
 
     
     # TODO: change so only rewrites whole file if existing row edited

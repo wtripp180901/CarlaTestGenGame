@@ -86,8 +86,7 @@ def main():
 
         score_change, new_triggered_assertions = assertionCheckTick(active_assertions)
         if len(new_triggered_assertions) > 0:
-            coverage.add_covered([(CoverageVariable.RAIN,RainTags.LIGHT)],[(CoverageVariable.NUM_ACTORS,2)],[a.ruleNumber for a in new_triggered_assertions])
-            coverage.print_coverage()
+            coverage.add_covered([(CoverageVariable.RAIN,RainTags.NONE)],[(CoverageVariable.NUM_ACTORS,2)],[a.ruleNumber for a in new_triggered_assertions])
         triggered_assertions.extend(new_triggered_assertions)
         score_writer.add_and_update_scenario_score(score_change)
         time.sleep(0.1)
@@ -179,9 +178,6 @@ def getJunctionStatus(ego,junction):
         return JunctionStates.T_ON_MINOR
     else:
         return JunctionStates.UNKNOWN
-        
-
-            
 
 if __name__ == '__main__':
     main()
