@@ -1,7 +1,12 @@
 import numpy
+from tags import *
 import assertion
 from enum import Enum
 from typing import List, Dict
+import os
+import csv
+
+coverage_file_path = "out/coverage.csv"
 
 class CoverageVariable(Enum):
     RAIN = 0
@@ -43,7 +48,15 @@ class Coverage:
         self.coverage_variable_set = coverage_variable_set
         self.micro_bin_ids = [a.ruleNumber for a in assertions]
         self.micro_bin_count = len(assertions)
-        self._covered_cases = {}
+        if os.path.isfile(coverage_file_path):
+            self._covered_cases = self.parse_coverage_file()
+        else:
+            self._covered_cases = {}
+            self.write_coverage()
+
+    variable_enum_map = {
+        CoverageVariable.RAIN: RainTags
+    }
 
     def get_total_size(self):
         return self.coverage_variable_set.macro_space_size * self.micro_bin_count
@@ -67,5 +80,53 @@ class Coverage:
             self._covered_cases[key] = [False for _ in range(len(self.micro_bin_ids))]
         for id in covered_assertion_ids:
             self._covered_cases[key][self.micro_bin_ids.index(id)] = True
+        self.write_coverage()
 
     
+    # TODO: change so only rewrites whole file if existing row edited
+    def write_coverage(self):
+        fieldnames = self.get_csv_header()
+        with open(coverage_file_path, 'w', newline='') as coveragefile:
+            writer = csv.writer(coveragefile)
+            writer.writerow(fieldnames)
+            for key in self._covered_cases:
+                row = [convert_criteria_value_cell(x) for x in list(key)]
+                row.extend(list(self._covered_cases[key]))
+                writer.writerow(row)
+
+        
+    def parse_coverage_file(self):
+        covered_cases = {}
+        with open(coverage_file_path, 'r', newline='') as coveragefile:
+            reader = csv.reader(coveragefile)
+            data = list(reader)
+            headers = data[0]
+            cov_criteria_len = len(self.get_csv_header(include_micro_bins=False))
+            for i in range(1,len(data),1):
+                new_key = data[i][:cov_criteria_len]
+                for j in range(len(new_key)):
+                    new_key[j] = self.parse_criteria_cell(new_key[j],headers[j])
+                new_key = tuple(new_key)
+                new_data = [x == "True" for x in data[i][cov_criteria_len:]]
+                covered_cases[new_key] = new_data
+        return covered_cases
+    
+    def parse_criteria_cell(self,cell: str,header_var: str):
+        if cell.isdigit():
+            return int(cell)
+        else:
+            return self.variable_enum_map[CoverageVariable[header_var]][cell]
+
+    def get_csv_header(self,include_micro_bins=True):
+        fieldnames = [x[0].name for x in self.coverage_variable_set.enumerations]
+        fieldnames.extend([x[0].name for x in self.coverage_variable_set.hyperparams])
+        if include_micro_bins:
+            fieldnames.extend(self.micro_bin_ids)
+        return fieldnames
+    
+def convert_criteria_value_cell(cell):
+        if str(cell).isdigit():
+            return cell
+        else:
+            return cell.name
+        

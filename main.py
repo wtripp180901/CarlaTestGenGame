@@ -8,6 +8,7 @@ import random
 import time
 import test_setup
 import numpy
+import score_writer
 
 class TestActor:
     def __init__(self):
@@ -32,8 +33,6 @@ def main():
 
     for i,s in enumerate(world.get_map().get_spawn_points()):
         world.debug.draw_string(s.location + carla.Vector3D(0,0,2),str(i),life_time=20)
-    
-    test_score = 0
     
     active_assertions = [
         Assertion(126,
@@ -87,10 +86,10 @@ def main():
 
         score_change, new_triggered_assertions = assertionCheckTick(active_assertions)
         if len(new_triggered_assertions) > 0:
-            coverage.add_covered([(CoverageVariable.RAIN,RainTags.NONE)],[(CoverageVariable.NUM_ACTORS,2)],[a.ruleNumber for a in new_triggered_assertions])
+            coverage.add_covered([(CoverageVariable.RAIN,RainTags.LIGHT)],[(CoverageVariable.NUM_ACTORS,2)],[a.ruleNumber for a in new_triggered_assertions])
             coverage.print_coverage()
         triggered_assertions.extend(new_triggered_assertions)
-        test_score += score_change
+        score_writer.add_and_update_scenario_score(score_change)
         time.sleep(0.1)
 
 def assertionCheckTick(assertions):
