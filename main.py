@@ -34,7 +34,7 @@ def main():
     map = world.get_map()
 
     for i,s in enumerate(world.get_map().get_spawn_points()):
-        world.debug.draw_string(s.location + carla.Vector3D(0,0,2),str(i),life_time=20)
+        world.debug.draw_string(s.location + carla.Vector3D(0,0,2),str(i),life_time=60)
     
     active_assertions = [
         Assertion(126,
@@ -77,6 +77,7 @@ def main():
         non_ego_vehicles = [x for x in non_ego_vehicles if x.id != ego_vehicle.id]
 
         current_junction = currentJunction(ego_vehicle,map)
+
         # Might cause issues for double junctions
         if current_junction == None and has_junction:
             has_junction = False
@@ -149,6 +150,7 @@ class JunctionStates(Enum):
     T_ON_MINOR = 1
     UNKNOWN = 2
     NONE = 3
+    ROUNDABOUT = 4
 
 def currentJunction(ego,map):
     ego_waypoint = map.get_waypoint(ego.get_location())
@@ -167,20 +169,36 @@ def getJunctionStatus(ego,junction):
     #TODO: distinguish between left and right somehow
     other_path = False
     location = entrypoint.transform.location
-    destinations_from_entrypoint = [w[1].transform.location for w in waypoints if (w[0].transform.location - location).length() < 0.01]
+    destinations_from_entrypoint = [w[1] for w in waypoints if (w[0].transform.location - location).length() < 0.01]
     direction_vector = location - entrypoint.previous(10)[0].transform.location
     direction_vector = direction_vector / direction_vector.length()
+    
+    roundabout = True
     for d in destinations_from_entrypoint:
-        if (d - (location + direction_vector * (d - location).length())).length() < 1:
+        possible_next_junction = d.next(10)[0].get_junction()
+        if possible_next_junction == None or possible_next_junction.id == junction.id:
+            roundabout = False
+
+        if (d.transform.location - (location + direction_vector * (d.transform.location - location).length())).length() < 1:
             straight_path = True
         else:
             other_path = True
+    
+    if roundabout:
+        return JunctionStates.ROUNDABOUT
     if straight_path and other_path:
         return JunctionStates.T_ON_MAJOR
     elif other_path:
         return JunctionStates.T_ON_MINOR
     else:
         return JunctionStates.UNKNOWN
+
+def debugJunction(current_junction,world):
+    if current_junction != None:
+        for x in current_junction.get_waypoints(carla.LaneType.Driving):
+            world.debug.draw_line(x[0].transform.location,x[0].transform.location + carla.Vector3D(0,0,5),life_time=0.1)
+            world.debug.draw_line(x[1].transform.location,x[1].transform.location + carla.Vector3D(0,0,5),life_time=0.1,color=carla.Color(0,255,0))
+            world.debug.draw_line(x[1].next(10)[0].transform.location,x[1].next(10)[0].transform.location + carla.Vector3D(0,0,5),life_time=0.1,color=carla.Color(0,0,255))
 
 if __name__ == '__main__':
     main()

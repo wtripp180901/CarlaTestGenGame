@@ -54,6 +54,18 @@ def TJunction(client: carla.Client,spawnNumber: int):
     world.get_spectator().set_transform(ego.get_transform())
     return ego, world
 
+def Roundabout(client: carla.Client):
+    world = client.load_world("Town03_Opt")
+    ego_bp = world.get_blueprint_library().filter("vehicle.audi.a2")[0]
+    ego_bp.set_attribute('role_name', 'hero')
+    ego = world.spawn_actor(ego_bp, reversed_spawn(world.get_map().get_spawn_points()[245]))
+    priority_vehicle = world.spawn_actor(world.get_blueprint_library().filter("vehicle.audi.etron")[0],reversed_spawn(world.get_map().get_spawn_points()[81]))
+    ego.apply_control(carla.VehicleControl(throttle=0.5))
+    priority_vehicle.apply_control(carla.VehicleControl(throttle=0.5))
+    world.get_spectator().set_transform(ego.get_transform())
+    return world
+
+
 def reversed_spawn(spawn_point: carla.Transform):
     return carla.Transform(spawn_point.location, carla.Rotation(spawn_point.rotation.pitch,spawn_point.rotation.yaw + 180,spawn_point.rotation.roll))
 
@@ -62,7 +74,8 @@ test_scenarios = {
     "TJunctionMinorRoad": TJunctionMinorUnsafe,
     "TJunctionSafeLeft": TJunctionMinorSafe,
     "TJunctionMajorRoad": TJunctionMajor,
-    "TJunctionRight": TJunctionMinorRight
+    "TJunctionRight": TJunctionMinorRight,
+    "Roundabout": Roundabout
 }
 
 def setupForTest(test_name: str,client: carla.Client) -> carla.World:
