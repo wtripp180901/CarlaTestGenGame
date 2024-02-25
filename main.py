@@ -52,6 +52,7 @@ def main():
                   lambda: junction_status == JunctionStates.T_ON_MINOR and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) for v in non_ego_vehicles),
                   lambda: not (junction_status == JunctionStates.T_ON_MINOR 
                                and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) and (not performingSafeLeftTurn(ego_vehicle,v) and not performingSafeRightTurn(ego_vehicle,v)) for v in non_ego_vehicles)) 
+                               or straightOnAtJunction(ego_vehicle,junction_status)
                                or ego_vehicle.get_velocity().length() < 0.1
         )
     ]
@@ -120,16 +121,16 @@ def performingSafeRightTurn(ego_vehicle,vehicle):
 
 # Returns true if oncoming vehicle is travelling in direction of right lane of major road or vehicle is parked at junction
 def incomingVehicleAllowsLeftTurn(ego_vehicle,vehicle):
-    return angle_between_vehicle_directions(ego_vehicle,vehicle) < 0 or vehicle.get_velocity().length() <= 0
+    return upcoming_travelling_to_right(ego_vehicle,vehicle) or vehicle.get_velocity().length() <= 0
 
 # Returns true if oncoming vehicle is travelling in direction of left lane of major road and turning left or vehicle is parked at junction
 def incomingVehicleAllowsRightTurn(ego_vehicle,vehicle):
-    return (vehicle.get_control().steer < 0 and angle_between_vehicle_directions(ego_vehicle,vehicle) > 0) or vehicle.get_velocity().length() <= 0
+    return (vehicle.get_control().steer < 0 and not upcoming_travelling_to_right(ego_vehicle,vehicle)) or vehicle.get_velocity().length() <= 0
 
-def angle_between_vehicle_directions(forward_vehicle,incoming):
+def upcoming_travelling_to_right(forward_vehicle,upcoming):
     va = forward_vehicle.get_transform().get_right_vector()
-    vb = -1 * incoming.get_transform().get_forward_vector()
-    return va.x * vb.x + va.y * vb.y
+    vb = upcoming.get_transform().get_forward_vector()
+    return va.x * vb.x + va.y * vb.y > 0
 
 def vehicleInJunction(vehicle: carla.Actor,junction: carla.Junction,extentMargins: carla.Vector3D = carla.Vector3D(0,0,5)):
     bb = junction.bounding_box
@@ -162,6 +163,9 @@ class JunctionStates(Enum):
     UNKNOWN = 2
     NONE = 3
     ROUNDABOUT = 4
+
+def straightOnAtJunction(vehicle: carla.Vehicle,junction_status: JunctionStates):
+    return vehicle.get_control().steer == 0 and junction_status == JunctionStates.T_ON_MAJOR
 
 def currentJunction(ego,map):
     ego_waypoint = map.get_waypoint(ego.get_location())

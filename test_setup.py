@@ -51,12 +51,18 @@ def TJunctionMinorRight(client: carla.Client):
     print("Checking starting now")
     return world
 
-def TJunctionMajorUnsafe(client: carla.Client):
+def TJunctionMajor(client: carla.Client,opposite_steering: float):
     ego, world = TJunction(client,125)
     major_vehicle = world.spawn_actor(world.get_blueprint_library().filter("vehicle.audi.etron")[0],reversed_spawn(world.get_map().get_spawn_points()[78]))
     major_vehicle.apply_control(carla.VehicleControl(throttle=0.6))
-    ego.apply_control(carla.VehicleControl(throttle=0.9,steer=0.15))
+    ego.apply_control(carla.VehicleControl(throttle=0.9,steer=opposite_steering))
     return world
+
+def TJunctionMajorStraightOn(client: carla.Client):
+    return TJunctionMajor(client,0)
+
+def TJunctionMajorUnsafeRight(client: carla.Client):
+    return TJunctionMajor(client,0.15)
 
 def TJunction(client: carla.Client,spawnNumber: int):
     world = client.load_world("Town01")
@@ -87,7 +93,8 @@ test_scenarios = {
     "TJunctionMinorRoad": TJunctionMinorUnsafe,
     "TJunctionSafeLeft": TJunctionMinorSafe,
     "TJunctionSafeRight": TJunctionMinorSafeRight,
-    "TJunctionMajorRoad": TJunctionMajorUnsafe,
+    "TJunctionMajorRight": TJunctionMajorUnsafeRight,
+    "TJunctionMajorStraight": TJunctionMajorStraightOn,
     "TJunctionRight": TJunctionMinorRight,
     "Roundabout": Roundabout
 }
