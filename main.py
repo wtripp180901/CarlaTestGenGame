@@ -52,9 +52,14 @@ def main():
                   lambda: junction_status == JunctionStates.T_ON_MINOR and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) for v in non_ego_vehicles),
                   lambda: not (junction_status == JunctionStates.T_ON_MINOR 
                                and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) and (not performingSafeLeftTurn(ego_vehicle,v) and not performingSafeRightTurn(ego_vehicle,v)) for v in non_ego_vehicles)) 
-                               or straightOnAtJunction(ego_vehicle,junction_status)
                                or ego_vehicle.get_velocity().length() < 0.1
-        )
+                ),
+        Assertion(171, #TODO: change into subcase of 170
+                  "Give way to vehicles on major road (major case)",
+                  lambda: junction_status == JunctionStates.T_ON_MAJOR and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) for v in non_ego_vehicles),
+                  lambda: (not (junction_status == JunctionStates.T_ON_MAJOR and (any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) for v in non_ego_vehicles))) or straightOnAtJunction(ego_vehicle,junction_status))
+                            or ego_vehicle.get_velocity().length() < 0.1
+                )
     ]
 
     coverage = Coverage(active_assertions,world_state.coverage_space)
