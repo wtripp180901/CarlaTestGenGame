@@ -51,7 +51,7 @@ class CoverageVariableSet:
 class Coverage:
     def __init__(self,assertions: List[assertion.Assertion],coverage_variable_set: CoverageVariableSet):
         self.coverage_variable_set = coverage_variable_set
-        self.micro_bin_ids = [a.ruleNumber for a in assertions]
+        self.micro_bin_ids = [get_micro_bin_id(a) for a in assertions]
         self.micro_bin_count = len(assertions)
         if os.path.isfile(coverage_file_path):
             self._covered_cases = self.parse_coverage_file()
@@ -75,20 +75,19 @@ class Coverage:
     
     # enumerations should be of type List[(CoverageVariable,Enum)] (should be concrete Enum e.g RainTags)
     # hyperparams should be of type List[(CoverageVariable,int)] (actual hyperparam not max value)
-    def add_covered(self,enumerated_vars: List[Tuple[CoverageVariable,Enum]],hyperparam_vars: List[Tuple[CoverageVariable,int]],covered_assertion_ids: List[int]):
+    def add_covered(self,enumerated_vars: List[Tuple[CoverageVariable,Enum]],hyperparam_vars: List[Tuple[CoverageVariable,int]],covered_assertions: List[assertion.Assertion]):
         key = self.coverage_variable_set.get_coverage_entry_key(enumerated_vars,hyperparam_vars)
         if not (key in self._covered_cases):
             self._covered_cases[key] = [False for _ in range(len(self.micro_bin_ids))]
         new_case = False
-        for id in covered_assertion_ids:
-            if self._covered_cases[key][self.micro_bin_ids.index(id)] == False:
+        for a in covered_assertions:
+            if self._covered_cases[key][self.micro_bin_ids.index(get_micro_bin_id(a))] == False:
                 new_case = True
-            self._covered_cases[key][self.micro_bin_ids.index(id)] = True
+            self._covered_cases[key][self.micro_bin_ids.index(get_micro_bin_id(a))] = True
         if new_case:
             print("New case found!")
             self.write_coverage()
             self.print_coverage()
-
     
     # TODO: change so only rewrites whole file if existing row edited
     def write_coverage(self):
@@ -131,6 +130,9 @@ class Coverage:
             fieldnames.extend(self.micro_bin_ids)
         return fieldnames
     
+def get_micro_bin_id(assertion: assertion.Assertion):
+    return str(assertion.ruleNumber)+"."+str(assertion.subcase)
+
 def convert_criteria_value_cell(cell):
         if str(cell).isdigit():
             return cell

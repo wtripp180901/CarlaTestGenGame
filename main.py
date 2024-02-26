@@ -37,24 +37,24 @@ def main():
         world.debug.draw_string(s.location + carla.Vector3D(0,0,2),str(i),life_time=60)
     
     active_assertions = [
-        Assertion(126,
+        Assertion(126, 0,
                 "Maintain a safe stopping distance",
                 (lambda: any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(ego_vehicle.get_velocity().length()) + 5,world) for t in non_ego_vehicles)),
                 (lambda: not any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(ego_vehicle.get_velocity().length()),world) for t in non_ego_vehicles))
                 ),
-        Assertion(124,
+        Assertion(124, 0,
                 "You must not exceed maximum speed limits",
                 (lambda: ego_vehicle.get_speed_limit() != None),
                 (lambda: ego_vehicle.get_velocity().length() <= ego_vehicle.get_speed_limit())
                 ),
-        Assertion(170,
+        Assertion(170, 0,
                   "Give way to vehicles on major road",
                   lambda: junction_status == JunctionStates.T_ON_MINOR and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) for v in non_ego_vehicles),
                   lambda: not (junction_status == JunctionStates.T_ON_MINOR 
                                and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) and (not performingSafeLeftTurn(ego_vehicle,v) and not performingSafeRightTurn(ego_vehicle,v)) for v in non_ego_vehicles)) 
                                or ego_vehicle.get_velocity().length() < 0.1
                 ),
-        Assertion(171, #TODO: change into subcase of 170
+        Assertion(170, 1,
                   "Give way to vehicles on major road (major case)",
                   lambda: junction_status == JunctionStates.T_ON_MAJOR and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) for v in non_ego_vehicles),
                   lambda: (not (junction_status == JunctionStates.T_ON_MAJOR and (any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) for v in non_ego_vehicles))) or straightOnAtJunction(ego_vehicle,junction_status))
@@ -96,7 +96,7 @@ def main():
         score_change, new_triggered_assertions = assertionCheckTick(active_assertions)
         if len(new_triggered_assertions) > 0:
             enumed_vars, quant_vars = world_state.get_coverage_state()
-            coverage.add_covered(enumed_vars,quant_vars,[a.ruleNumber for a in new_triggered_assertions])
+            coverage.add_covered(enumed_vars,quant_vars,new_triggered_assertions)
         triggered_assertions.extend(new_triggered_assertions)
         score_writer.add_and_update_scenario_score(score_change)
         time.sleep(0.1)

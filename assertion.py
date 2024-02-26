@@ -2,10 +2,11 @@ from typing import Callable
 from tags import *
 
 class Assertion:
-    def __init__(self,ruleNumber: int,description: str,
+    def __init__(self,ruleNumber: int,subcase: int,description: str,
                  preconditionOracle: Callable[[], bool],assertionOracle: Callable[[], bool],
                  raininess: TagSet = ANY_TAGSET):
         self.ruleNumber = ruleNumber
+        self.subcase = subcase
         self.description = description
         self.preconditionOracle = preconditionOracle
         self.assertionOracle = assertionOracle
