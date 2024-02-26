@@ -7,7 +7,7 @@ from coverage import *
 import random
 import time
 import test_setup
-import numpy
+import numpy as np
 import score_writer
 from world_state import WorldState
 
@@ -66,6 +66,7 @@ def main():
 
     has_junction = False
     junction_status = JunctionStates.NONE
+    quads = None
     triggered_assertions = []
     while True:
         non_ego_actors = world.get_actors()
@@ -88,10 +89,14 @@ def main():
         if current_junction == None and has_junction:
             has_junction = False
             junction_status = JunctionStates.NONE
+            quads = None
         if not has_junction and current_junction != None:
             has_junction = True
-            junction_status = getJunctionStatus(ego_vehicle,current_junction)
+            junction_status, quads = getJunctionStatus(ego_vehicle,current_junction)
             print(junction_status)
+
+        if quads != None:
+            print(quads.get_quadrant(ego_vehicle.get_transform().location))
 
         score_change, new_triggered_assertions = assertionCheckTick(active_assertions)
         if len(new_triggered_assertions) > 0:
@@ -176,22 +181,61 @@ def currentJunction(ego,map):
     ego_waypoint = map.get_waypoint(ego.get_location())
     return ego_waypoint.get_junction()
 
+class JunctionQuadrants(Enum):
+    OUTER_BEFORE_TURNING = 0
+    OUTER_AFTER_TURNING = 1
+    INNER_BEFORE_TURNING = 2
+    INNER_AFTER_TURNING = 3
+
+class PartitionedJunction:
+    def __init__(self,cross_point: carla.Vector3D,right_lane_alignment_vector: carla.Vector3D,past_turning_alignment_vector: carla.Vector3D):
+        self.cross_point = carla.Vector2D(cross_point.x,cross_point.y)
+        self._lane_separation_vector = carla.Vector2D(right_lane_alignment_vector.x,right_lane_alignment_vector.y)
+        self._turning_separation_vector = carla.Vector2D(past_turning_alignment_vector.x,past_turning_alignment_vector.y)
+
+    def get_quadrant(self,location: carla.Location):
+        location = carla.Vector2D(location.x,location.y)
+        relative_vector = location - self.cross_point
+        relative_vector = relative_vector / relative_vector.length()
+        lane_dot = relative_vector.x * self._lane_separation_vector.x + relative_vector.y * self._lane_separation_vector.y
+        turning_dot = relative_vector.x * self._turning_separation_vector.x + relative_vector.y * self._turning_separation_vector.y
+        in_right_lane = lane_dot > 0
+        past_turning_point = turning_dot > 0
+        if in_right_lane:
+            if past_turning_point:
+                return JunctionQuadrants.INNER_AFTER_TURNING
+            else:
+                return JunctionQuadrants.INNER_BEFORE_TURNING
+        else:
+            if past_turning_point:
+                return JunctionQuadrants.OUTER_AFTER_TURNING
+            else:
+                return JunctionQuadrants.OUTER_BEFORE_TURNING
+    
+    def inner_lane(self,location: carla.Location):
+        quad = self.get_quadrant(location)
+        return quad == JunctionQuadrants.INNER_AFTER_TURNING or quad == JunctionQuadrants.INNER_BEFORE_TURNING
+    
+    def past_turning(self,location: carla.Location):
+        quad = self.get_quadrant(location)
+        return quad == JunctionQuadrants.INNER_AFTER_TURNING or quad == JunctionQuadrants.OUTER_AFTER_TURNING
+
+
 
 def getJunctionStatus(ego,junction):
     
     waypoints = junction.get_waypoints(carla.LaneType.Driving)
     entrypoints = [t[0] for t in waypoints]
-    distances = [(ego.get_transform().location - e.transform.location).length() for e in entrypoints]
-    closestInd = numpy.argmin(distances)
-    entrypoint = entrypoints[closestInd]
+    dist_sorted = sorted(entrypoints,key = lambda x: [(ego.get_transform().location - x.transform.location).length()])
+    entrypoint = dist_sorted[0]
 
     straight_path = False
-    #TODO: distinguish between left and right somehow
     other_path = False
     location = entrypoint.transform.location
     destinations_from_entrypoint = [w[1] for w in waypoints if (w[0].transform.location - location).length() < 0.01]
     direction_vector = location - entrypoint.previous(10)[0].transform.location
     direction_vector = direction_vector / direction_vector.length()
+    right_direction_vector = direction_vector.cross(carla.Vector3D(0,0,1))
     
     roundabout = True
     for d in destinations_from_entrypoint:
@@ -203,15 +247,35 @@ def getJunctionStatus(ego,junction):
             straight_path = True
         else:
             other_path = True
-    
+
+    sorted_other_entrances = sorted(
+        [e for e in entrypoints if (e.transform.location - entrypoint.transform.location).length() > 0.1],
+        key=(lambda x: (x.transform.location - location).length())
+    )
+
     if roundabout:
-        return JunctionStates.ROUNDABOUT
+        return JunctionStates.ROUNDABOUT, None
     if straight_path and other_path:
-        return JunctionStates.T_ON_MAJOR
+        assert len(sorted_other_entrances) > 0
+        closest_other_entrance = sorted_other_entrances[0]
+        cross_point = get_vector_intersection(entrypoint.transform.location - right_direction_vector * (entrypoint.lane_width),
+                                direction_vector,
+                                closest_other_entrance.transform.location - direction_vector * (closest_other_entrance.lane_width/2),
+                                right_direction_vector)
+        return JunctionStates.T_ON_MAJOR, PartitionedJunction(cross_point,-1 * right_direction_vector,direction_vector)
     elif other_path:
-        return JunctionStates.T_ON_MINOR
+        assert len(sorted_other_entrances) > 0
+        closest_other_entrance = sorted_other_entrances[0]
+        cross_point = get_vector_intersection(entrypoint.transform.location + right_direction_vector * (entrypoint.lane_width),
+                                direction_vector,
+                                closest_other_entrance.transform.location + direction_vector * (closest_other_entrance.lane_width/2),
+                                right_direction_vector)
+        return JunctionStates.T_ON_MINOR, PartitionedJunction(cross_point,-1 * direction_vector,-1 * right_direction_vector)
     else:
-        return JunctionStates.UNKNOWN
+        return JunctionStates.UNKNOWN, None
+
+def get_vector_intersection(b1,v1,b2,v2):
+    return (np.matrix([[v1.x,-v2.x],[v1.y,-v2.y]]).I @ np.matrix([[b2.x-b1.x],[b2.y-b1.x]])).getA()[0][0] * v2 + b2
 
 def debugJunction(current_junction,world):
     if current_junction != None:
