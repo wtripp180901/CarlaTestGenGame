@@ -26,6 +26,10 @@ def main():
     ego_vehicle = None
     non_ego_actors = None
     non_ego_vehicles = None
+
+    has_junction = False
+    junction_status = JunctionStates.NONE
+    quads = None
     
     client = carla.Client('localhost', 2000)
     client.set_timeout(10)
@@ -51,7 +55,7 @@ def main():
                   "Give way to vehicles on major road",
                   lambda: junction_status == JunctionStates.T_ON_MINOR and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) for v in non_ego_vehicles),
                   lambda: not (junction_status == JunctionStates.T_ON_MINOR 
-                               and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) and (not performingSafeLeftTurn(ego_vehicle,v) and not performingSafeRightTurn(ego_vehicle,v)) for v in non_ego_vehicles)) 
+                               and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) and (not performingSafeLeftTurn(ego_vehicle,v,quads,junction_status) and not performingSafeRightTurn(ego_vehicle,v,quads,junction_status)) for v in non_ego_vehicles)) 
                                or ego_vehicle.get_velocity().length() < 0.1
                 ),
         Assertion(170, 1,
@@ -64,9 +68,6 @@ def main():
 
     coverage = Coverage(active_assertions,world_state.coverage_space)
 
-    has_junction = False
-    junction_status = JunctionStates.NONE
-    quads = None
     triggered_assertions = []
     while True:
         non_ego_actors = world.get_actors()
@@ -95,9 +96,6 @@ def main():
             junction_status, quads = getJunctionStatus(ego_vehicle,current_junction)
             print(junction_status)
 
-        if quads != None:
-            print(quads.get_quadrant(ego_vehicle.get_transform().location))
-
         score_change, new_triggered_assertions = assertionCheckTick(active_assertions)
         if len(new_triggered_assertions) > 0:
             enumed_vars, quant_vars = world_state.get_coverage_state()
@@ -123,24 +121,6 @@ def assertionCheckTick(assertions):
     assertions[:] = [x for x in assertions if not x.violated]
     return score_change, triggered_assertions
 
-def performingSafeLeftTurn(ego_vehicle,vehicle):
-    return ego_vehicle.get_control().steer < 0 and incomingVehicleAllowsLeftTurn(ego_vehicle,vehicle)
-
-def performingSafeRightTurn(ego_vehicle,vehicle):
-    return ego_vehicle.get_control().steer > 0 and incomingVehicleAllowsRightTurn(ego_vehicle,vehicle)
-
-# Returns true if oncoming vehicle is travelling in direction of right lane of major road or vehicle is parked at junction
-def incomingVehicleAllowsLeftTurn(ego_vehicle,vehicle):
-    return upcoming_travelling_to_right(ego_vehicle,vehicle) or vehicle.get_velocity().length() <= 0
-
-# Returns true if oncoming vehicle is travelling in direction of left lane of major road and turning left or vehicle is parked at junction
-def incomingVehicleAllowsRightTurn(ego_vehicle,vehicle):
-    return (vehicle.get_control().steer < 0 and not upcoming_travelling_to_right(ego_vehicle,vehicle)) or vehicle.get_velocity().length() <= 0
-
-def upcoming_travelling_to_right(forward_vehicle,upcoming):
-    va = forward_vehicle.get_transform().get_right_vector()
-    vb = upcoming.get_transform().get_forward_vector()
-    return va.x * vb.x + va.y * vb.y > 0
 
 def vehicleInJunction(vehicle: carla.Actor,junction: carla.Junction,extentMargins: carla.Vector3D = carla.Vector3D(0,0,5)):
     bb = junction.bounding_box
@@ -221,7 +201,6 @@ class PartitionedJunction:
         return quad == JunctionQuadrants.INNER_AFTER_TURNING or quad == JunctionQuadrants.OUTER_AFTER_TURNING
 
 
-
 def getJunctionStatus(ego,junction):
     
     waypoints = junction.get_waypoints(carla.LaneType.Driving)
@@ -283,6 +262,24 @@ def debugJunction(current_junction,world):
             world.debug.draw_line(x[0].transform.location,x[0].transform.location + carla.Vector3D(0,0,5),life_time=0.1)
             world.debug.draw_line(x[1].transform.location,x[1].transform.location + carla.Vector3D(0,0,5),life_time=0.1,color=carla.Color(0,255,0))
             world.debug.draw_line(x[1].next(10)[0].transform.location,x[1].next(10)[0].transform.location + carla.Vector3D(0,0,5),life_time=0.1,color=carla.Color(0,0,255))
+
+def performingSafeLeftTurn(ego_vehicle,vehicle,partitioned_junction: PartitionedJunction,junction_status):
+    if junction_status == JunctionStates.T_ON_MINOR:
+        return (ego_vehicle.get_control().steer < 0 and partitioned_junction.get_quadrant(vehicle.get_transform().location) != JunctionQuadrants.INNER_AFTER_TURNING) or vehicle.get_velocity().length() <= 0.1
+    elif junction_status == JunctionStates.T_ON_MAJOR:
+        return ego_vehicle.get_control().steer < 0
+    else:
+        print("Warning: undefined safe left")
+        return False
+
+def performingSafeRightTurn(ego_vehicle,vehicle,paritioned_junction: PartitionedJunction,junction_status):
+    if junction_status == JunctionStates.T_ON_MINOR:
+        return (ego_vehicle.get_control().steer > 0 and paritioned_junction.get_quadrant(vehicle.get_transform().location) == JunctionQuadrants.INNER_AFTER_TURNING and vehicle.get_control().steer < 0) or vehicle.get_velocity().length() <= 0.1
+    elif junction_status == JunctionStates.T_ON_MAJOR:
+        return (ego_vehicle.get_control().steer > 0 and paritioned_junction.get_quadrant(vehicle.get_transform().location) != JunctionQuadrants.INNER_AFTER_TURNING) or vehicle.get_velocity().length() <= 0.1
+    else:
+        print("Warning: undefined safe right")
+        return False
 
 if __name__ == '__main__':
     main()
