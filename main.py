@@ -101,7 +101,8 @@ def main():
             enumed_vars, quant_vars = world_state.get_coverage_state(ego_vehicle,non_ego_vehicles)
             coverage.add_covered(enumed_vars,quant_vars,new_triggered_assertions)
         triggered_assertions.extend(new_triggered_assertions)
-        score_writer.add_and_update_scenario_score(score_change)
+        if score_change != 0:
+            score_writer.add_and_update_scenario_score(score_change)
         time.sleep(0.1)
 
 def assertionCheckTick(assertions):
@@ -138,14 +139,14 @@ def locationWithinBoxInFrontOfVehicle(from_vehicle: carla.Actor,location: carla.
 
     box = carla.BoundingBox(carla.Vector3D(0,0,0),
                             carla.Vector3D((box_length/2),extents.y,extents.z))
-    world.debug.draw_box(carla.BoundingBox(centre + directionVector * (box_length/2),carla.Vector3D((box_length/2),extents.y,extents.z)),transform.rotation,life_time=0.1)
-    return box.contains(location,carla.Transform(centre + directionVector * (box_length/2),transform.rotation))
+    world.debug.draw_box(carla.BoundingBox(centre + directionVector * (extents.x + box_length/2),carla.Vector3D((box_length/2),extents.y,extents.z)),transform.rotation,life_time=0.1)
+    return box.contains(location,carla.Transform(centre + directionVector * (extents.x + box_length/2),transform.rotation))
                    
 
 def stoppingDistance(speed):
     # Stopping distance = thinking distance + braking distance
-    # DVSA formulae: Thinking distance = 0.3 * speed, braking distance = 0.015 * speed^2
-    return 0.3 * speed + speed * speed * 0.015
+    speed = speed / 3.6
+    return 0.675 * speed + speed * speed * (1/12.96)
 
 class JunctionStates(Enum):
     T_ON_MAJOR = 0

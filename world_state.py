@@ -36,7 +36,7 @@ class WorldState:
     def get_coverage_state(self,ego_vehicle,non_ego_vehicles):
         enumerated_speed_limit = None
         try:
-            enumerated_speed_limit = SpeedLimits[ego_vehicle.get_speed_limit()]
+            enumerated_speed_limit = SpeedLimits(int(ego_vehicle.get_speed_limit()))
         except:
             enumerated_speed_limit = SpeedLimits.SEVENTY
         enumerated_vars = [
