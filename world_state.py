@@ -16,6 +16,9 @@ class SpeedLimits(Enum):
     FIFTY = 50
     SIXTY = 60
     SEVENTY = 70
+    EIGHT = 80
+    NINETY = 90
+    HUNDRED = 100
 
 class WorldState:
     def __init__(self,world: carla.World):
@@ -38,6 +41,7 @@ class WorldState:
         try:
             enumerated_speed_limit = SpeedLimits(int(ego_vehicle.get_speed_limit()))
         except:
+            print("invalid speed limit: ",ego_vehicle.get_speed_limit())
             enumerated_speed_limit = SpeedLimits.SEVENTY
         enumerated_vars = [
             (CoverageVariable.RAIN, getWeatherLevel(self.world.get_weather().precipitation)),

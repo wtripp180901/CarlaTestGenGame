@@ -62,33 +62,44 @@ class Coverage:
             self._covered_cases = {}
             self.write_coverage()
 
-    def get_total_size(self):
-        return self.coverage_variable_set.macro_space_size * self.micro_bin_count
+    def get_total_size(self,include_micro=False):
+        size = self.coverage_variable_set.macro_space_size
+        if include_micro:
+            size *= self.micro_bin_count
+        return size
     
-    def get_covered_cases(self):
+    def get_violated_cases(self):
         covered = 0
         for macro_case in self._covered_cases.values():
             covered += len([micro_case for micro_case in macro_case if micro_case == True])
         return covered
     
     def print_coverage(self):
-        covered = self.get_covered_cases()
+        covered = len(self._covered_cases)
+        violated = self.get_violated_cases()
         total = self.get_total_size()
+        micro_total = self.get_total_size(include_micro=True)
         print(covered,"out of",total,"cases covered, ",covered/total,'% covered')
+        print(violated," bugs found out of",micro_total,"potential bugs found, ",violated/micro_total,'%')
     
     # enumerations should be of type List[(CoverageVariable,Enum)] (should be concrete Enum e.g RainTags)
     # hyperparams should be of type List[(CoverageVariable,int)] (actual hyperparam not max value)
-    def add_covered(self,enumerated_vars: List[Tuple[CoverageVariable,Enum]],hyperparam_vars: List[Tuple[CoverageVariable,int]],covered_assertions: List[assertion.Assertion]):
+    def try_cover(self,enumerated_vars: List[Tuple[CoverageVariable,Enum]],hyperparam_vars: List[Tuple[CoverageVariable,int]],covered_assertions: List[assertion.Assertion]):
         key = self.coverage_variable_set.get_coverage_entry_key(enumerated_vars,hyperparam_vars)
+        new_case = False
         if not (key in self._covered_cases):
             self._covered_cases[key] = [False for _ in range(len(self.micro_bin_ids))]
-        new_case = False
+            new_case = True
+        new_violation = False
         for a in covered_assertions:
             if self._covered_cases[key][self.micro_bin_ids.index(get_micro_bin_id(a))] == False:
-                new_case = True
+                new_violation = True
             self._covered_cases[key][self.micro_bin_ids.index(get_micro_bin_id(a))] = True
-        if new_case:
-            print("New case found!")
+        if new_violation or new_case:
+            if new_case:
+                print("New case found!")
+            if new_violation:
+                print("Undiscovered bug found for case!")
             self.write_coverage()
             self.print_coverage()
     

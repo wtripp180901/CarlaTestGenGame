@@ -97,9 +97,8 @@ def main():
             print(junction_status)
 
         score_change, new_triggered_assertions = assertionCheckTick(active_assertions)
-        if len(new_triggered_assertions) > 0:
-            enumed_vars, quant_vars = world_state.get_coverage_state(ego_vehicle,non_ego_vehicles)
-            coverage.add_covered(enumed_vars,quant_vars,new_triggered_assertions)
+        enumed_vars, quant_vars = world_state.get_coverage_state(ego_vehicle,non_ego_vehicles)
+        coverage.try_cover(enumed_vars,quant_vars,new_triggered_assertions)
         triggered_assertions.extend(new_triggered_assertions)
         if score_change != 0:
             score_writer.add_and_update_scenario_score(score_change)
