@@ -13,6 +13,9 @@ class CoverageVariable(Enum):
     NUM_VEHICLES = 1
     NUM_PEDESTRIANS = 2
     GROUND_WATER = 3
+    BIKES_PRESENT = 4
+    CARS_PRESENT = 5
+    SPEED_LIMIT = 6
 
 class CoverageVariableSet:
     # enumerations should be of type List[(CoverageVariable,Enum)] specifying the variable key and type of enum expected
