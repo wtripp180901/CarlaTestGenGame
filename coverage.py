@@ -2,7 +2,7 @@ import numpy
 from tags import *
 import assertion
 from enum import Enum
-from typing import List, Tuple
+from typing import List, Tuple, Callable
 import os
 import csv
 
@@ -16,6 +16,12 @@ class CoverageVariable(Enum):
     BIKES_PRESENT = 4
     CARS_PRESENT = 5
     SPEED_LIMIT = 6
+
+class CoverageStates(Enum):
+    BUG = 0
+    COVERED = 1
+    UNCOVERED = 2
+    INVALID = 3
 
 class CoverageVariableSet:
     # enumerations should be of type List[(CoverageVariable,Enum)] specifying the variable key and type of enum expected
@@ -62,46 +68,54 @@ class Coverage:
             self._covered_cases = {}
             self.write_coverage()
 
-    def get_total_size(self,include_micro=False):
-        size = self.coverage_variable_set.macro_space_size
-        if include_micro:
-            size *= self.micro_bin_count
-        return size
-    
-    def get_violated_cases(self):
+    def get_num_cases(self):
+        total = self.coverage_variable_set.macro_space_size * self.micro_bin_count
+        violated = 0
         covered = 0
         for macro_case in self._covered_cases.values():
-            covered += len([micro_case for micro_case in macro_case if micro_case == True])
-        return covered
+            total -= len([micro_case for micro_case in macro_case if micro_case == CoverageStates.INVALID])
+            violated += len([micro_case for micro_case in macro_case if micro_case == CoverageStates.BUG])
+            covered += len([micro_case for micro_case in macro_case if (micro_case == CoverageStates.COVERED or micro_case == CoverageStates.BUG)])
+        return total, violated, covered
     
     def print_coverage(self):
-        covered = len(self._covered_cases)
-        violated = self.get_violated_cases()
-        total = self.get_total_size()
-        micro_total = self.get_total_size(include_micro=True)
+        total, violated, covered = self.get_num_cases()
         print(covered,"out of",total,"cases covered, ",covered/total,'% covered')
-        print(violated," bugs found out of",micro_total,"potential bugs found, ",violated/micro_total,'%')
+        print(violated," bugs found out of",total,"potential bugs found, ",violated/total,'%')
     
     # enumerations should be of type List[(CoverageVariable,Enum)] (should be concrete Enum e.g RainTags)
     # hyperparams should be of type List[(CoverageVariable,int)] (actual hyperparam not max value)
-    def try_cover(self,enumerated_vars: List[Tuple[CoverageVariable,Enum]],hyperparam_vars: List[Tuple[CoverageVariable,int]],covered_assertions: List[assertion.Assertion]):
+    def try_cover(self,enumerated_vars: List[Tuple[CoverageVariable,Enum]],hyperparam_vars: List[Tuple[CoverageVariable,int]],violated_assertions: List[assertion.Assertion],covered_assertions: List[assertion.Assertion],valid_assertions: List[assertion.Assertion]):
         key = self.coverage_variable_set.get_coverage_entry_key(enumerated_vars,hyperparam_vars)
+        
         new_case = False
+        new_uncovered = False
+        
         if not (key in self._covered_cases):
-            self._covered_cases[key] = [False for _ in range(len(self.micro_bin_ids))]
+            self._covered_cases[key] = [CoverageStates.INVALID for _ in range(len(self.micro_bin_ids))]
+            print("New coverage bin found!")
             new_case = True
-        new_violation = False
-        for a in covered_assertions:
-            if self._covered_cases[key][self.micro_bin_ids.index(get_micro_bin_id(a))] == False:
-                new_violation = True
-            self._covered_cases[key][self.micro_bin_ids.index(get_micro_bin_id(a))] = True
-        if new_violation or new_case:
-            if new_case:
-                print("New case found!")
-            if new_violation:
+        
+        for i, bin_id in enumerate(self.micro_bin_ids):
+            state = self._covered_cases[key][i]
+            if bin_id in [get_micro_bin_id(x) for x in valid_assertions] and state == CoverageStates.INVALID:
+                self._covered_cases[key][i] = CoverageStates.UNCOVERED
+                new_uncovered = True
+            
+            if bin_id in [get_micro_bin_id(x) for x in violated_assertions] and (state == CoverageStates.COVERED or state == CoverageStates.UNCOVERED):
                 print("Undiscovered bug found for case!")
+                self._covered_cases[key][i] = CoverageStates.BUG
+                new_case = True
+            elif bin_id in [get_micro_bin_id(x) for x in covered_assertions] and state == CoverageStates.UNCOVERED:
+                print("New case found!")
+                self._covered_cases[key][i] = CoverageStates.COVERED
+                new_case = True
+            
+        if new_case:
             self.write_coverage()
             self.print_coverage()
+        elif new_uncovered:
+            self.write_coverage()
     
     # TODO: change so only rewrites whole file if existing row edited
     def write_coverage(self):
@@ -111,7 +125,7 @@ class Coverage:
             writer.writerow(fieldnames)
             for key in self._covered_cases:
                 row = [convert_criteria_value_cell(x) for x in list(key)]
-                row.extend(list(self._covered_cases[key]))
+                row.extend([x.name for x in list(self._covered_cases[key])])
                 writer.writerow(row)
 
         
@@ -127,7 +141,7 @@ class Coverage:
                 for j in range(len(new_key)):
                     new_key[j] = self.parse_criteria_cell(new_key[j],headers[j])
                 new_key = tuple(new_key)
-                new_data = [x == "True" for x in data[i][cov_criteria_len:]]
+                new_data = [CoverageStates[x] for x in data[i][cov_criteria_len:]]
                 covered_cases[new_key] = new_data
         return covered_cases
     

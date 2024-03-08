@@ -13,7 +13,10 @@ class Assertion:
 
         self.covered = False
         self.violated = False
-        self.vacuous = False
+        self.zero_value = False
+
+        self.precondition_active_in_tick = False
+        self.violated_in_tick = False
 
         # Tag constraints
         self.raininess = raininess
@@ -22,12 +25,17 @@ class Assertion:
         return requiredTagsPresent(self.raininess,raininess)
 
     def Check(self):
+        self.precondition_active_in_tick = False
+        self.violated_in_tick = False
+        
         if self.preconditionOracle():
             self.covered = True
+            self.precondition_active_in_tick = True
         if not self.assertionOracle():
             self.violated = True
-            if not self.preconditionOracle():
-                self.vacuous = True
+            self.violated_in_tick = True
+            if not self.precondition_active_in_tick:
+                self.zero_value = True
 
 def requiredTagsPresent(myTags: TagSet,envTags: TagSet):
         return (myTags.Any or 

@@ -68,7 +68,6 @@ def main():
 
     coverage = Coverage(active_assertions,world_state.coverage_space)
 
-    triggered_assertions = []
     while True:
         non_ego_actors = world.get_actors()
         non_ego_vehicles = non_ego_actors.filter('*vehicle*')
@@ -96,30 +95,37 @@ def main():
             junction_status, quads = getJunctionStatus(ego_vehicle,current_junction)
             print(junction_status)
 
-        score_change, new_triggered_assertions = assertionCheckTick(active_assertions)
+        score_change, triggered_assertions, covered_assertions, valid_assertions = assertionCheckTick(active_assertions)
         enumed_vars, quant_vars = world_state.get_coverage_state(ego_vehicle,non_ego_vehicles)
-        coverage.try_cover(enumed_vars,quant_vars,new_triggered_assertions)
-        triggered_assertions.extend(new_triggered_assertions)
+        coverage.try_cover(enumed_vars,quant_vars,triggered_assertions,covered_assertions,valid_assertions)
         if score_change != 0:
             score_writer.add_and_update_scenario_score(score_change)
         time.sleep(0.1)
 
-def assertionCheckTick(assertions):
+def assertionCheckTick(assertions: List[assertion.Assertion]):
     score_change = 0
+    valid_assertions = []
+    covered_assertions = []
+    triggered_assertions = []
+
     for i in range(len(assertions)):
         if assertions[i].IsActive(RainTags.NONE):
+            valid_assertions.append(assertions[i])
+            violated_before_tick = assertions[i].violated
             assertions[i].Check()
-            if assertions[i].violated:
-                if assertions[i].vacuous:
+            if assertions[i].precondition_active_in_tick:
+                covered_assertions.append(assertions[i])
+                if assertions[i].violated_in_tick:
+                    triggered_assertions.append(assertions[i])
+            if assertions[i].violated and not violated_before_tick:
+                if assertions[i].zero_value:
                     print("Unfair test:",assertions[i].description,"-1")
                     score_change -= 1
                 else:
                     print("Bug found:",assertions[i].description,"+1")
                     score_change += 1
 
-    triggered_assertions = [x for x in assertions if x.violated]
-    assertions[:] = [x for x in assertions if not x.violated]
-    return score_change, triggered_assertions
+    return score_change, triggered_assertions, covered_assertions, valid_assertions
 
 
 def vehicleInJunction(vehicle: carla.Actor,junction: carla.Junction,extentMargins: carla.Vector3D = carla.Vector3D(0,0,5)):
