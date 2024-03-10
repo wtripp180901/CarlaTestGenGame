@@ -2,6 +2,7 @@ import carla
 from coverage import CoverageVariableSet, CoverageVariable
 from tags import *
 from typing import List, Tuple
+import numpy as np
 
 class BooleanEnum(Enum):
     TRUE = 0
@@ -69,50 +70,53 @@ class WorldState:
         glob_left = carla.Vector3D(-1,0,0)
         glob_down = carla.Vector3D(0,-1,0)
         glob_up = carla.Vector3D(0,1,0)
+        threshold = 0.1
 
         if junction == None:
-            possible_waypoints = [ego_waypoint.next(10)[0], ego_waypoint.previous(10)[0]]
-            relative_positions = [x.transform.location - ego_waypoint.transform.location for x in possible_waypoints]
-            relative_directions = [x/x.length() for x in relative_positions]
-            other = []
-            for i, w in enumerate(relative_directions):
-                classified = False
-                if vector_is_straight_in_direction(w,glob_up):
-                    up = True
-                    classified = True
-                if vector_is_straight_in_direction(w,glob_down):
-                    down = True
-                    classified = True
-                if vector_is_straight_in_direction(w,glob_right):
-                    right = True
-                    classified = True
-                if vector_is_straight_in_direction(w,glob_left):
-                    left = True
-                    classified = True
-                if not classified:
-                    other.append(possible_waypoints[i])
+            road_direction = ego_waypoint.next(10)[0].transform.location - ego_waypoint.previous(10)[0].transform.location
+            road_direction = road_direction / road_direction.length()
+            directions = [glob_up,glob_down,glob_left,glob_right]
+            direction_dots = [dot2d(road_direction,d) for d in directions]
+            closest_direction = np.argmax(direction_dots)
 
-            print(up,down,left,right)
-            if up or down:
-                for w in other:
-                    if w.get_junction != None:
-                        up = True
-                        down = True
-                    else:
-                        if w.transform.location.y > 0:
-                            right = True
-                        else:
-                            left = True
-            elif left or right:
-                for w in other:
-                    if w.get_junction != None:
-                        left = True
+            straight = 1 - direction_dots[closest_direction] < threshold
+
+            if closest_direction == 0:
+                down = True
+                if straight:
+                    up = True
+                else:
+                    if direction_dots[3] > 0:
                         right = True
                     else:
-                        if w.transform.location.x > 0:
-                            up = True
-                        else:
-                            down = True
+                        left = True
+            elif closest_direction == 1:
+                up = True
+                if straight:
+                    down = True
+                else:
+                    if direction_dots[3] > 0:
+                        right = True
+                    else:
+                        left = True
+            elif closest_direction == 2:
+                right = True
+                if straight:
+                    left = True
+                else:
+                    if direction_dots[0] > 0:
+                        up = True
+                    else:
+                        down = True
+            elif closest_direction == 3:
+                left = True
+                if straight:
+                    right = True
+                else:
+                    if direction_dots[0] > 0:
+                        up = True
+                    else:
+                        down = True
         else:
             waypoints = junction.get_waypoints(carla.LaneType.Driving)
             entry = waypoints[0][0]
@@ -143,6 +147,8 @@ class WorldState:
             output_string = self._last_road_graph_string
         return output_string
 
+def dot2d(v1,v2):
+    return v1.x * v2.x + v1.y * v2.y
 
 def vector_is_straight_in_direction(vec: carla.Vector3D,dir: carla.Vector3D):
     threshold = 0.1
