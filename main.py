@@ -98,6 +98,17 @@ def main():
         score_change, triggered_assertions, covered_assertions, valid_assertions = assertionCheckTick(active_assertions)
         enumed_vars, quant_vars = world_state.get_coverage_state(ego_vehicle,non_ego_vehicles)
         coverage.try_cover(enumed_vars,quant_vars,triggered_assertions,covered_assertions,valid_assertions)
+        
+        ego_loc = ego_vehicle.get_location()
+        ego_wp = map.get_waypoint(ego_loc)
+        print(world_state.get_road_graph(ego_wp))
+
+        # world.debug.draw_line(ego_wp.transform.location,ego_wp.transform.location + carla.Vector3D(0,0,5),life_time=0.1)
+        # for w in ego_wp.next(10):
+        #     world.debug.draw_line(w.transform.location,w.transform.location + carla.Vector3D(0,0,5),color=carla.Color(0,255,0),life_time=0.1)
+        # for w in ego_wp.previous(10):
+        #     world.debug.draw_line(w.transform.location,w.transform.location + carla.Vector3D(0,0,5),color=carla.Color(0,0,255),life_time=0.1)
+
         if score_change != 0:
             score_writer.add_and_update_scenario_score(score_change)
         time.sleep(0.1)

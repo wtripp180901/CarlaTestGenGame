@@ -35,6 +35,7 @@ class WorldState:
             (CoverageVariable.NUM_PEDESTRIANS,50)
         ]
         )
+        self._last_road_graph_string = "TTTT"
 
     def get_coverage_state(self,ego_vehicle,non_ego_vehicles):
         enumerated_speed_limit = None
@@ -55,6 +56,97 @@ class WorldState:
             (CoverageVariable.NUM_PEDESTRIANS, len(self.world.get_actors().filter("*walker*")))
         ]
         return enumerated_vars, quantitative_vars
+
+    def get_road_graph(self,ego_waypoint: carla.Waypoint):
+        junction = ego_waypoint.get_junction()
+
+        up = False
+        down = False
+        left = False
+        right = False
+
+        glob_right = carla.Vector3D(1,0,0)
+        glob_left = carla.Vector3D(-1,0,0)
+        glob_down = carla.Vector3D(0,-1,0)
+        glob_up = carla.Vector3D(0,1,0)
+
+        if junction == None:
+            possible_waypoints = [ego_waypoint.next(10)[0], ego_waypoint.previous(10)[0]]
+            relative_positions = [x.transform.location - ego_waypoint.transform.location for x in possible_waypoints]
+            relative_directions = [x/x.length() for x in relative_positions]
+            other = []
+            for i, w in enumerate(relative_directions):
+                classified = False
+                if vector_is_straight_in_direction(w,glob_up):
+                    up = True
+                    classified = True
+                if vector_is_straight_in_direction(w,glob_down):
+                    down = True
+                    classified = True
+                if vector_is_straight_in_direction(w,glob_right):
+                    right = True
+                    classified = True
+                if vector_is_straight_in_direction(w,glob_left):
+                    left = True
+                    classified = True
+                if not classified:
+                    other.append(possible_waypoints[i])
+
+            print(up,down,left,right)
+            if up or down:
+                for w in other:
+                    if w.get_junction != None:
+                        up = True
+                        down = True
+                    else:
+                        if w.transform.location.y > 0:
+                            right = True
+                        else:
+                            left = True
+            elif left or right:
+                for w in other:
+                    if w.get_junction != None:
+                        left = True
+                        right = True
+                    else:
+                        if w.transform.location.x > 0:
+                            up = True
+                        else:
+                            down = True
+        else:
+            waypoints = junction.get_waypoints(carla.LaneType.Driving)
+            entry = waypoints[0][0]
+            road_waypoints = [x[1] for x in waypoints if (x[0].transform.location - entry.transform.location).length() < 0.1]
+            road_waypoints.append(entry)
+            
+            relative_positions = [x.transform.location - junction.bounding_box.location for x in road_waypoints]
+            
+            for p in relative_positions:
+                if p.y > p.x:
+                    if p.y > -p.x:
+                        up = True
+                    else:
+                        left = True
+                else:
+                    if p.y > -p.x:
+                        right = True
+                    else:
+                        down = True
+
+        output_string = ""
+        for b in [up,down,left,right]:
+            if b:
+                output_string = output_string + "T"
+            else:
+                output_string = output_string + "F"
+        if output_string == "FFFF":
+            output_string = self._last_road_graph_string
+        return output_string
+
+
+def vector_is_straight_in_direction(vec: carla.Vector3D,dir: carla.Vector3D):
+    threshold = 0.1
+    return (vec - dir).length() < threshold
 
 def boolToEnum(bool):
     if bool:
