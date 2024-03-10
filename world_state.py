@@ -21,6 +21,23 @@ class SpeedLimits(Enum):
     NINETY = 90
     HUNDRED = 100
 
+class RoadGraphs(Enum):
+    FFFT = 0
+    FFTF = 1
+    FFTT = 2
+    FTFF = 3
+    FTFT = 4
+    FTTF = 5
+    FTTT = 6
+    TFFF = 7
+    TFFT = 8
+    TFTF = 9
+    TFTT = 10
+    TTFF = 11
+    TTFT = 12
+    TTTF = 13
+    TTTT = 14
+
 class WorldState:
     def __init__(self,world: carla.World):
         self.world = world
@@ -29,7 +46,8 @@ class WorldState:
             (CoverageVariable.GROUND_WATER,RainTags),
             (CoverageVariable.BIKES_PRESENT,BooleanEnum),
             (CoverageVariable.CARS_PRESENT, BooleanEnum),
-            (CoverageVariable.SPEED_LIMIT,SpeedLimits)
+            (CoverageVariable.SPEED_LIMIT,SpeedLimits),
+            (CoverageVariable.ROAD_GRAPH,RoadGraphs)
         ],
         [
             (CoverageVariable.NUM_VEHICLES,50),
@@ -38,19 +56,22 @@ class WorldState:
         )
         self._last_road_graph_string = "TTTT"
 
-    def get_coverage_state(self,ego_vehicle,non_ego_vehicles):
+    def get_coverage_state(self,ego_vehicle,non_ego_vehicles,map):
         enumerated_speed_limit = None
         try:
             enumerated_speed_limit = SpeedLimits(int(ego_vehicle.get_speed_limit()))
         except:
             print("invalid speed limit: ",ego_vehicle.get_speed_limit())
             enumerated_speed_limit = SpeedLimits.SEVENTY
+        self._last_road_graph_string = self.get_road_graph(map.get_waypoint(ego_vehicle.get_location()))
+
         enumerated_vars = [
             (CoverageVariable.RAIN, getWeatherLevel(self.world.get_weather().precipitation)),
             (CoverageVariable.GROUND_WATER, getWeatherLevel(self.world.get_weather().precipitation_deposits)),
             (CoverageVariable.BIKES_PRESENT, boolToEnum(any([v.attributes["number_of_wheels"] == 2 for v in non_ego_vehicles]))),
             (CoverageVariable.CARS_PRESENT, boolToEnum(any([v.attributes["number_of_wheels"] == 4 for v in non_ego_vehicles]))),
-            (CoverageVariable.SPEED_LIMIT, enumerated_speed_limit)
+            (CoverageVariable.SPEED_LIMIT, enumerated_speed_limit),
+            (CoverageVariable.ROAD_GRAPH, RoadGraphs[self._last_road_graph_string])
         ]
         quantitative_vars = [
             (CoverageVariable.NUM_VEHICLES, len(non_ego_vehicles)),

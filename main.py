@@ -96,12 +96,8 @@ def main():
             print(junction_status)
 
         score_change, triggered_assertions, covered_assertions, valid_assertions = assertionCheckTick(active_assertions)
-        enumed_vars, quant_vars = world_state.get_coverage_state(ego_vehicle,non_ego_vehicles)
+        enumed_vars, quant_vars = world_state.get_coverage_state(ego_vehicle,non_ego_vehicles,map)
         coverage.try_cover(enumed_vars,quant_vars,triggered_assertions,covered_assertions,valid_assertions)
-        
-        ego_loc = ego_vehicle.get_location()
-        ego_wp = map.get_waypoint(ego_loc)
-        print(world_state.get_road_graph(ego_wp))
 
         # world.debug.draw_line(ego_wp.transform.location,ego_wp.transform.location + carla.Vector3D(0,0,5),life_time=0.1)
         # for w in ego_wp.next(10):

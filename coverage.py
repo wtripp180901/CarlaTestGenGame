@@ -16,6 +16,7 @@ class CoverageVariable(Enum):
     BIKES_PRESENT = 4
     CARS_PRESENT = 5
     SPEED_LIMIT = 6
+    ROAD_GRAPH = 7
 
 class CoverageStates(Enum):
     BUG = 0
