@@ -5,6 +5,7 @@ from typing import List, Tuple, Callable
 import os
 import csv
 from coverage_variables import *
+from validity_requirements import ValidityRequirement
 
 coverage_file_path = "out/coverage.csv"
 
@@ -17,32 +18,32 @@ class CoverageStates(Enum):
 class CoverageVariableSet:
     # enumerations should be of type List[(CoverageVariable,Enum)] specifying the variable key and type of enum expected
     # hyperparams should be of type List[(CoverageVariable,int)] specifying the variable key and max value
-    def __init__(self,enumerations: List[Tuple[CoverageVariable,Enum]],hyperparams: List[Tuple[CoverageVariable,int]]):
-        self.enumerations = enumerations
-        self.hyperparams = hyperparams
-        self.macro_space_size = 1
-        for e in [v[1] for v in enumerations]:
-            self.macro_space_size *= len(e)
-        for max_val in [v[1] for v in hyperparams]:
-            self.macro_space_size *= max_val
+    def __init__(self,qualitative: List[Tuple[CoverageVariable,Enum]],quantitative: List[Tuple[CoverageVariable,int]]):
+        self.qualitative = qualitative
+        self.quantitative = quantitative
+        self.macro_bin_count = 1
+        for e in [v[1] for v in qualitative]:
+            self.macro_bin_count *= len(e)
+        for max_val in [v[1] for v in quantitative]:
+            self.macro_bin_count *= max_val
 
     def get_enum_of_variable(self,variable: CoverageVariable):
-        return next(x[1] for x in self.enumerations if x[0] == variable)
+        return next(x[1] for x in self.qualitative if x[0] == variable)
 
     def get_coverage_entry_key(self,parameterised_enumerations: List[Tuple[CoverageVariable,Enum]],parameterised_hyperparams: List[Tuple[CoverageVariable,int]]):
-        entry = [None for _ in range(len(self.enumerations + self.hyperparams))]
-        assert(len(parameterised_enumerations) == len(self.enumerations))
-        assert(len(parameterised_hyperparams) == len(self.hyperparams))
+        entry = [None for _ in range(len(self.qualitative + self.quantitative))]
+        assert(len(parameterised_enumerations) == len(self.qualitative))
+        assert(len(parameterised_hyperparams) == len(self.quantitative))
         for e in parameterised_enumerations:
-            var_name_index = [v[0] for v in self.enumerations].index(e[0])
-            if type(e[1]) is self.enumerations[var_name_index][1]:
+            var_name_index = [v[0] for v in self.qualitative].index(e[0])
+            if type(e[1]) is self.qualitative[var_name_index][1]:
                 entry[var_name_index] = e[1]
             else:
                 raise Exception("Incorrect type")
         for h in parameterised_hyperparams:
-            var_name_index = [v[0] for v in self.hyperparams].index(h[0])
-            if h[1] <= self.hyperparams[var_name_index][1]:
-                entry[len(self.enumerations) + var_name_index] = h[1]
+            var_name_index = [v[0] for v in self.quantitative].index(h[0])
+            if h[1] <= self.quantitative[var_name_index][1]:
+                entry[len(self.qualitative) + var_name_index] = h[1]
             else:
                 raise Exception("Exceeds max value")
         return tuple(entry)
@@ -53,6 +54,9 @@ class Coverage:
         self.coverage_variable_set = coverage_variable_set
         self.micro_bin_ids = [get_micro_bin_id(a) for a in assertions]
         self.micro_bin_count = len(assertions)
+        self.total_size = self.micro_bin_count * self.coverage_variable_set.macro_bin_count
+        self.restrict_coverage_space(assertions)
+
         if os.path.isfile(coverage_file_path):
             self._covered_cases = self.parse_coverage_file()
         else:
@@ -60,15 +64,36 @@ class Coverage:
             self.write_coverage()
 
     def get_num_cases(self):
-        total = self.coverage_variable_set.macro_space_size * self.micro_bin_count
         violated = 0
         covered = 0
         for macro_case in self._covered_cases.values():
-            total -= len([micro_case for micro_case in macro_case if micro_case == CoverageStates.INVALID])
             violated += len([micro_case for micro_case in macro_case if micro_case == CoverageStates.BUG])
             covered += len([micro_case for micro_case in macro_case if (micro_case == CoverageStates.COVERED or micro_case == CoverageStates.BUG)])
-        return total, violated, covered
+        return self.total_size, violated, covered
     
+    def restrict_coverage_space(self,assertions: List[assertion.Assertion]):
+        qual_vars = [v[0] for v in self.coverage_variable_set.qualitative]
+        for req in [a.validityRequirements for a in assertions]:
+            if req != None:
+                if req.absent_variables != None:
+                    for v in req.absent_variables:
+                        i = qual_vars.index(v)
+                        var_width = len(self.coverage_variable_set.qualitative[i][1])
+                        self.total_size -= (var_width - len(req.present_variables[v])) * (self.coverage_variable_set.macro_bin_count / var_width)
+                if req.present_variables != None:
+                    cum_var_width = 1
+                    cum_valid_cases = 1
+                    for v in req.present_variables:
+                        i = qual_vars.index(v)
+                        var_width = len(self.coverage_variable_set.qualitative[i][1])
+                        cum_var_width *= var_width
+                        cum_valid_cases *= len(req.present_variables[v])
+                        if not req.all_present_required:
+                            self.total_size -= len(req.present_variables[v]) * (self.coverage_variable_set.macro_bin_count / var_width)
+                    if req.all_present_required:
+                        self.total_size -= cum_valid_cases * (self.coverage_variable_set.macro_bin_count / cum_var_width)
+        self.total_size = int(self.total_size)
+
     def print_coverage(self):
         total, violated, covered = self.get_num_cases()
         print(covered,"out of",total,"cases covered, ",covered/total,'% covered')
@@ -143,8 +168,8 @@ class Coverage:
             return self.coverage_variable_set.get_enum_of_variable(CoverageVariable[header_var])[cell]
 
     def get_csv_header(self,include_micro_bins=True):
-        fieldnames = [x[0].name for x in self.coverage_variable_set.enumerations]
-        fieldnames.extend([x[0].name for x in self.coverage_variable_set.hyperparams])
+        fieldnames = [x[0].name for x in self.coverage_variable_set.qualitative]
+        fieldnames.extend([x[0].name for x in self.coverage_variable_set.quantitative])
         if include_micro_bins:
             fieldnames.extend(self.micro_bin_ids)
         return fieldnames
