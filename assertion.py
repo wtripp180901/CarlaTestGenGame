@@ -1,10 +1,10 @@
 from typing import Callable
-from tags import *
+from validity_requirements import *
 
 class Assertion:
     def __init__(self,ruleNumber: int,subcase: int,description: str,
                  preconditionOracle: Callable[[], bool],assertionOracle: Callable[[], bool],
-                 raininess: TagSet = ANY_TAGSET):
+                 validityRequirements: ValidityRequirement = None):
         self.ruleNumber = ruleNumber
         self.subcase = subcase
         self.description = description
@@ -19,10 +19,12 @@ class Assertion:
         self.violated_in_tick = False
 
         # Tag constraints
-        self.raininess = raininess
+        self.validityRequirements = validityRequirements
     
-    def IsActive(self,raininess: TagSet):
-        return requiredTagsPresent(self.raininess,raininess)
+    def IsActive(self,coverage_state: List[Tuple[CoverageVariable,Enum]]):
+        if self.validityRequirements == None:
+            return True
+        return self.validityRequirements.is_valid(coverage_state)
 
     def Check(self):
         self.precondition_active_in_tick = False
@@ -36,8 +38,3 @@ class Assertion:
             self.violated_in_tick = True
             if not self.precondition_active_in_tick:
                 self.zero_value = True
-
-def requiredTagsPresent(myTags: TagSet,envTags: TagSet):
-        return (myTags.Any or 
-                (myTags.allRequired and set(myTags.tags).issubset(envTags.tags)) or 
-                (not myTags.allRequired and not set(myTags.tags).isdisjoint(envTags.tags)))

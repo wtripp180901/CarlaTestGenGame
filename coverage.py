@@ -1,22 +1,12 @@
 import numpy
-from tags import *
 import assertion
 from enum import Enum
 from typing import List, Tuple, Callable
 import os
 import csv
+from coverage_variables import *
 
 coverage_file_path = "out/coverage.csv"
-
-class CoverageVariable(Enum):
-    RAIN = 0
-    NUM_VEHICLES = 1
-    NUM_PEDESTRIANS = 2
-    GROUND_WATER = 3
-    BIKES_PRESENT = 4
-    CARS_PRESENT = 5
-    SPEED_LIMIT = 6
-    ROAD_GRAPH = 7
 
 class CoverageStates(Enum):
     BUG = 0

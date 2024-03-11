@@ -2,9 +2,9 @@ import argparse
 
 import carla
 from assertion import Assertion
-from tags import *
+from validity_requirements import *
 from coverage import *
-import random
+import assertion
 import time
 import test_setup
 import numpy as np
@@ -56,13 +56,15 @@ def main():
                   lambda: junction_status == JunctionStates.T_ON_MINOR and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) for v in non_ego_vehicles),
                   lambda: not (junction_status == JunctionStates.T_ON_MINOR 
                                and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) and (not performingSafeLeftTurn(ego_vehicle,v,quads,junction_status) and not performingSafeRightTurn(ego_vehicle,v,quads,junction_status)) for v in non_ego_vehicles)) 
-                               or ego_vehicle.get_velocity().length() < 0.1
+                               or ego_vehicle.get_velocity().length() < 0.1,
+                  validityRequirements=IN_JUNCTION_REQUIREMENTS
                 ),
         Assertion(170, 1,
                   "Give way to vehicles on major road (major case)",
                   lambda: junction_status == JunctionStates.T_ON_MAJOR and any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) for v in non_ego_vehicles),
                   lambda: (not (junction_status == JunctionStates.T_ON_MAJOR and (any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) for v in non_ego_vehicles))) or straightOnAtJunction(ego_vehicle,junction_status))
-                            or ego_vehicle.get_velocity().length() < 0.1
+                            or ego_vehicle.get_velocity().length() < 0.1,
+                  validityRequirements=IN_JUNCTION_REQUIREMENTS
                 )
     ]
 
@@ -95,9 +97,9 @@ def main():
             junction_status, quads = getJunctionStatus(ego_vehicle,current_junction)
             print(junction_status)
 
-        score_change, triggered_assertions, covered_assertions, valid_assertions = assertionCheckTick(active_assertions)
-        enumed_vars, quant_vars = world_state.get_coverage_state(ego_vehicle,non_ego_vehicles,map)
-        coverage.try_cover(enumed_vars,quant_vars,triggered_assertions,covered_assertions,valid_assertions)
+        qual_vars, quant_vars = world_state.get_coverage_state(ego_vehicle,non_ego_vehicles,map)
+        score_change, triggered_assertions, covered_assertions, valid_assertions = assertionCheckTick(active_assertions,qual_vars)
+        coverage.try_cover(qual_vars,quant_vars,triggered_assertions,covered_assertions,valid_assertions)
 
         # world.debug.draw_line(ego_wp.transform.location,ego_wp.transform.location + carla.Vector3D(0,0,5),life_time=0.1)
         # for w in ego_wp.next(10):
@@ -109,14 +111,14 @@ def main():
             score_writer.add_and_update_scenario_score(score_change)
         time.sleep(0.1)
 
-def assertionCheckTick(assertions: List[assertion.Assertion]):
+def assertionCheckTick(assertions: List[assertion.Assertion],qualitative_coverage_state: List[Tuple[CoverageVariable,Enum]]):
     score_change = 0
     valid_assertions = []
     covered_assertions = []
     triggered_assertions = []
 
     for i in range(len(assertions)):
-        if assertions[i].IsActive(RainTags.NONE):
+        if assertions[i].IsActive(qualitative_coverage_state):
             valid_assertions.append(assertions[i])
             violated_before_tick = assertions[i].violated
             assertions[i].Check()
@@ -136,6 +138,8 @@ def assertionCheckTick(assertions: List[assertion.Assertion]):
 
 
 def vehicleInJunction(vehicle: carla.Actor,junction: carla.Junction,extentMargins: carla.Vector3D = carla.Vector3D(0,0,5)):
+    if junction == None:
+        return False
     bb = junction.bounding_box
     nbb = carla.BoundingBox(carla.Vector3D(0,0,0),bb.extent + extentMargins)
     if nbb.contains(vehicle.get_transform().location + carla.Vector3D(0,0,extentMargins.z/2),carla.Transform(bb.location,bb.rotation)):

@@ -1,42 +1,10 @@
 import carla
 from coverage import CoverageVariableSet, CoverageVariable
-from tags import *
+from validity_requirements import *
 from typing import List, Tuple
 import numpy as np
+from coverage_variables import *
 
-class BooleanEnum(Enum):
-    TRUE = 0
-    FALSE = 1
-
-class SpeedLimits(Enum):
-    FIVE = 5
-    TEN = 10
-    TWENTY = 20
-    THIRTY = 30
-    FOURTY = 40
-    FIFTY = 50
-    SIXTY = 60
-    SEVENTY = 70
-    EIGHT = 80
-    NINETY = 90
-    HUNDRED = 100
-
-class RoadGraphs(Enum):
-    FFFT = 0
-    FFTF = 1
-    FFTT = 2
-    FTFF = 3
-    FTFT = 4
-    FTTF = 5
-    FTTT = 6
-    TFFF = 7
-    TFFT = 8
-    TFTF = 9
-    TFTT = 10
-    TTFF = 11
-    TTFT = 12
-    TTTF = 13
-    TTTT = 14
 
 class WorldState:
     def __init__(self,world: carla.World):
