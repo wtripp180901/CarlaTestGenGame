@@ -5,17 +5,18 @@ from typing import List, Tuple
 import numpy as np
 from coverage_variables import *
 
-
 class WorldState:
     def __init__(self,world: carla.World):
         self.world = world
         self.coverage_space = CoverageVariableSet([
-            (CoverageVariable.RAIN,RainTags),
-            (CoverageVariable.GROUND_WATER,RainTags),
+            (CoverageVariable.RAIN,Levels),
+            (CoverageVariable.GROUND_WATER,Levels),
             (CoverageVariable.BIKES_PRESENT,BooleanEnum),
             (CoverageVariable.CARS_PRESENT, BooleanEnum),
             (CoverageVariable.SPEED_LIMIT,SpeedLimits),
-            (CoverageVariable.ROAD_GRAPH,RoadGraphs)
+            (CoverageVariable.ROAD_GRAPH,RoadGraphs),
+            (CoverageVariable.PEDESTRIAN_DENSITY,Levels),
+            (CoverageVariable.VEHICLE_DENSITY,Levels)
         ]
         )
         self._last_road_graph_string = "TTTT"
@@ -35,12 +36,10 @@ class WorldState:
             (CoverageVariable.BIKES_PRESENT, boolToEnum(any([v.attributes["number_of_wheels"] == 2 for v in non_ego_vehicles]))),
             (CoverageVariable.CARS_PRESENT, boolToEnum(any([v.attributes["number_of_wheels"] == 4 for v in non_ego_vehicles]))),
             (CoverageVariable.SPEED_LIMIT, enumerated_speed_limit),
-            (CoverageVariable.ROAD_GRAPH, RoadGraphs[self._last_road_graph_string])
+            (CoverageVariable.ROAD_GRAPH, RoadGraphs[self._last_road_graph_string]),
+            (CoverageVariable.VEHICLE_DENSITY, get_density_level(get_actor_density(non_ego_vehicles,ego_vehicle.get_location(),25))),
+            (CoverageVariable.PEDESTRIAN_DENSITY, get_density_level(get_actor_density(self.world.get_actors().filter("*walker*"),ego_vehicle.get_location(),25)))
         ]
-        # quantitative_vars = [
-        #     (CoverageVariable.NUM_VEHICLES, len(non_ego_vehicles)),
-        #     (CoverageVariable.NUM_PEDESTRIANS, len(self.world.get_actors().filter("*walker*")))
-        # ]
         return enumerated_vars
 
     def get_road_graph(self,ego_waypoint: carla.Waypoint):
@@ -132,6 +131,21 @@ class WorldState:
             output_string = self._last_road_graph_string
         return output_string
 
+def get_actor_density(full_actor_list,ego_pos,distance):
+    return len([e for e in full_actor_list if (e.get_location() - ego_pos).length() < distance])/(3.14 * distance * distance)
+
+def get_density_level(density):
+    if density <= 0:
+        return Levels.NONE
+    elif density <= 0.03:
+        return Levels.LOW
+    elif density <= 0.08:
+        return Levels.MEDIUM
+    elif density <= 0.13:
+        return Levels.HIGH
+    else:
+        return Levels.VERY_HIGH
+
 def dot2d(v1,v2):
     return v1.x * v2.x + v1.y * v2.y
 
@@ -147,12 +161,12 @@ def boolToEnum(bool):
 
 def getWeatherLevel(variable: float):
     if variable <= 0:
-        return RainTags.NONE
+        return Levels.NONE
     elif variable <= 25:
-        return RainTags.VERY_LIGHT
+        return Levels.LOW
     elif variable <= 50:
-        return RainTags.LIGHT
+        return Levels.MEDIUM
     elif variable <= 75:
-        return RainTags.MID
+        return Levels.HIGH
     else:
-        return RainTags.HEAVY
+        return Levels.VERY_HIGH

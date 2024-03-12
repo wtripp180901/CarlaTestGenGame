@@ -2,8 +2,8 @@ from enum import Enum
 
 class CoverageVariable(Enum):
     RAIN = 0
-    NUM_VEHICLES = 1
-    NUM_PEDESTRIANS = 2
+    VEHICLE_DENSITY = 1
+    PEDESTRIAN_DENSITY = 2
     GROUND_WATER = 3
     BIKES_PRESENT = 4
     CARS_PRESENT = 5
@@ -27,12 +27,12 @@ class SpeedLimits(Enum):
     NINETY = 90
     HUNDRED = 100
 
-class RainTags(Enum):
+class Levels(Enum):
     NONE = 1
-    VERY_LIGHT = 2
-    LIGHT = 3
-    MID = 4
-    HEAVY = 5
+    LOW = 2
+    MEDIUM = 3
+    HIGH = 4
+    VERY_HIGH = 5
 
 class RoadGraphs(Enum):
     FFFT = 0
@@ -50,3 +50,4 @@ class RoadGraphs(Enum):
     TTFT = 12
     TTTF = 13
     TTTT = 14
+    
