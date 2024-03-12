@@ -26,6 +26,7 @@ def TJunctionMinorSafeRight(client: carla.Client):
     ego, world = TJunction(client,244)
     major_vehicle = world.spawn_actor(world.get_blueprint_library().filter("vehicle.audi.etron")[0],reversed_spawn(world.get_map().get_spawn_points()[78]))
     major_vehicle.apply_control(carla.VehicleControl(throttle=0.775,steer=-0.14))
+    ego.set_light_state(carla.VehicleLightState(carla.VehicleLightState.RightBlinker))
     time.sleep(2.5)
     ego.apply_control(carla.VehicleControl(throttle=0.85,steer=0.05))
     print("Checking starting now")
@@ -36,6 +37,7 @@ def TJunctionMinorSafe(client: carla.Client):
     ego, world = TJunction(client,244)
     major_vehicle = world.spawn_actor(world.get_blueprint_library().filter("vehicle.audi.etron")[0],reversed_spawn(world.get_map().get_spawn_points()[47]))
     major_vehicle.apply_control(carla.VehicleControl(throttle=0.95))
+    ego.set_light_state(carla.VehicleLightState(carla.VehicleLightState.LeftBlinker))
     time.sleep(2.5)
     ego.apply_control(carla.VehicleControl(throttle=0.85,steer=-0.05))
     print("Checking starting now")
@@ -66,7 +68,7 @@ def TJunctionMajorUnsafeRight(client: carla.Client):
 
 def TJunction(client: carla.Client,spawnNumber: int):
     world = client.load_world("Town01")
-    ego_bp = world.get_blueprint_library().filter("vehicle.audi.a2")[0]
+    ego_bp = world.get_blueprint_library().filter("vehicle.audi.tt")[0]
     ego_bp.set_attribute('role_name', 'hero')
     ego = world.spawn_actor(ego_bp, reversed_spawn(world.get_map().get_spawn_points()[spawnNumber]))
     ego.apply_control(carla.VehicleControl(throttle=0.85))

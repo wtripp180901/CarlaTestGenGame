@@ -65,6 +65,11 @@ def main():
                   lambda: (not (junction_status == JunctionStates.T_ON_MAJOR and (any(vehicleInJunction(v,currentJunction(ego_vehicle,map)) for v in non_ego_vehicles))) or straightOnAtJunction(ego_vehicle,junction_status))
                             or ego_vehicle.get_velocity().length() < 0.1,
                   validityRequirements=IN_JUNCTION_REQUIREMENTS
+                ),
+        Assertion(103,0,
+                  "Give signals before manoeuvering",
+                  lambda: junction_status != JunctionStates.NONE,
+                  lambda: ((ego_vehicle.get_light_state() == carla.VehicleLightState.RightBlinker or not ego_vehicle.get_control().steer > 0) and (ego_vehicle.get_light_state() == carla.VehicleLightState.LeftBlinker or not ego_vehicle.get_control().steer < 0)) or not junction_status != JunctionStates.NONE,
                 )
     ]
 
