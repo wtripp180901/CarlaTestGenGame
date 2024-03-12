@@ -16,10 +16,6 @@ class WorldState:
             (CoverageVariable.CARS_PRESENT, BooleanEnum),
             (CoverageVariable.SPEED_LIMIT,SpeedLimits),
             (CoverageVariable.ROAD_GRAPH,RoadGraphs)
-        ],
-        [
-            (CoverageVariable.NUM_VEHICLES,50),
-            (CoverageVariable.NUM_PEDESTRIANS,50)
         ]
         )
         self._last_road_graph_string = "TTTT"
@@ -41,11 +37,11 @@ class WorldState:
             (CoverageVariable.SPEED_LIMIT, enumerated_speed_limit),
             (CoverageVariable.ROAD_GRAPH, RoadGraphs[self._last_road_graph_string])
         ]
-        quantitative_vars = [
-            (CoverageVariable.NUM_VEHICLES, len(non_ego_vehicles)),
-            (CoverageVariable.NUM_PEDESTRIANS, len(self.world.get_actors().filter("*walker*")))
-        ]
-        return enumerated_vars, quantitative_vars
+        # quantitative_vars = [
+        #     (CoverageVariable.NUM_VEHICLES, len(non_ego_vehicles)),
+        #     (CoverageVariable.NUM_PEDESTRIANS, len(self.world.get_actors().filter("*walker*")))
+        # ]
+        return enumerated_vars
 
     def get_road_graph(self,ego_waypoint: carla.Waypoint):
         junction = ego_waypoint.get_junction()

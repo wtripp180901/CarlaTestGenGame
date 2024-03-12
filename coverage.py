@@ -17,35 +17,24 @@ class CoverageStates(Enum):
 
 class CoverageVariableSet:
     # enumerations should be of type List[(CoverageVariable,Enum)] specifying the variable key and type of enum expected
-    # hyperparams should be of type List[(CoverageVariable,int)] specifying the variable key and max value
-    def __init__(self,qualitative: List[Tuple[CoverageVariable,Enum]],quantitative: List[Tuple[CoverageVariable,int]]):
+    def __init__(self,qualitative: List[Tuple[CoverageVariable,Enum]]):
         self.qualitative = qualitative
-        self.quantitative = quantitative
         self.macro_bin_count = 1
         for e in [v[1] for v in qualitative]:
             self.macro_bin_count *= len(e)
-        for max_val in [v[1] for v in quantitative]:
-            self.macro_bin_count *= max_val
 
     def get_enum_of_variable(self,variable: CoverageVariable):
         return next(x[1] for x in self.qualitative if x[0] == variable)
 
-    def get_coverage_entry_key(self,parameterised_enumerations: List[Tuple[CoverageVariable,Enum]],parameterised_hyperparams: List[Tuple[CoverageVariable,int]]):
-        entry = [None for _ in range(len(self.qualitative + self.quantitative))]
+    def get_coverage_entry_key(self,parameterised_enumerations: List[Tuple[CoverageVariable,Enum]]):
+        entry = [None for _ in range(len(self.qualitative))]
         assert(len(parameterised_enumerations) == len(self.qualitative))
-        assert(len(parameterised_hyperparams) == len(self.quantitative))
         for e in parameterised_enumerations:
             var_name_index = [v[0] for v in self.qualitative].index(e[0])
             if type(e[1]) is self.qualitative[var_name_index][1]:
                 entry[var_name_index] = e[1]
             else:
                 raise Exception("Incorrect type")
-        for h in parameterised_hyperparams:
-            var_name_index = [v[0] for v in self.quantitative].index(h[0])
-            if h[1] <= self.quantitative[var_name_index][1]:
-                entry[len(self.qualitative) + var_name_index] = h[1]
-            else:
-                raise Exception("Exceeds max value")
         return tuple(entry)
 
 
@@ -100,9 +89,8 @@ class Coverage:
         print(violated," bugs found out of",total,"potential bugs found, ",violated/total,'%')
     
     # enumerations should be of type List[(CoverageVariable,Enum)] (should be concrete Enum e.g RainTags)
-    # hyperparams should be of type List[(CoverageVariable,int)] (actual hyperparam not max value)
-    def try_cover(self,enumerated_vars: List[Tuple[CoverageVariable,Enum]],hyperparam_vars: List[Tuple[CoverageVariable,int]],violated_assertions: List[assertion.Assertion],covered_assertions: List[assertion.Assertion],valid_assertions: List[assertion.Assertion]):
-        key = self.coverage_variable_set.get_coverage_entry_key(enumerated_vars,hyperparam_vars)
+    def try_cover(self,enumerated_vars: List[Tuple[CoverageVariable,Enum]],violated_assertions: List[assertion.Assertion],covered_assertions: List[assertion.Assertion],valid_assertions: List[assertion.Assertion]):
+        key = self.coverage_variable_set.get_coverage_entry_key(enumerated_vars)
         
         new_case = False
         new_uncovered = False
@@ -169,7 +157,6 @@ class Coverage:
 
     def get_csv_header(self,include_micro_bins=True):
         fieldnames = [x[0].name for x in self.coverage_variable_set.qualitative]
-        fieldnames.extend([x[0].name for x in self.coverage_variable_set.quantitative])
         if include_micro_bins:
             fieldnames.extend(self.micro_bin_ids)
         return fieldnames

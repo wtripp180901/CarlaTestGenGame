@@ -97,9 +97,9 @@ def main():
             junction_status, quads = getJunctionStatus(ego_vehicle,current_junction)
             print(junction_status)
 
-        qual_vars, quant_vars = world_state.get_coverage_state(ego_vehicle,non_ego_vehicles,map)
+        qual_vars = world_state.get_coverage_state(ego_vehicle,non_ego_vehicles,map)
         score_change, triggered_assertions, covered_assertions, valid_assertions = assertionCheckTick(active_assertions,qual_vars)
-        coverage.try_cover(qual_vars,quant_vars,triggered_assertions,covered_assertions,valid_assertions)
+        coverage.try_cover(qual_vars,triggered_assertions,covered_assertions,valid_assertions)
 
         # world.debug.draw_line(ego_wp.transform.location,ego_wp.transform.location + carla.Vector3D(0,0,5),life_time=0.1)
         # for w in ego_wp.next(10):
