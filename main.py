@@ -39,6 +39,8 @@ def main():
 
     for i,s in enumerate(world.get_map().get_spawn_points()):
         world.debug.draw_string(s.location + carla.Vector3D(0,0,2),str(i),life_time=60)
+
+    traffic_light_status = (False,False)
     
     active_assertions = [
         Assertion(126, 0,
@@ -70,7 +72,12 @@ def main():
                   "Give signals before manoeuvering",
                   lambda: junction_status != JunctionStates.NONE,
                   lambda: ((ego_vehicle.get_light_state() == carla.VehicleLightState.RightBlinker or not ego_vehicle.get_control().steer > 0) and (ego_vehicle.get_light_state() == carla.VehicleLightState.LeftBlinker or not ego_vehicle.get_control().steer < 0)) or not junction_status != JunctionStates.NONE,
-                )
+                ),
+        Assertion(0,0,
+                  "Must stop at traffic lights",
+                  lambda: traffic_light_status[0],
+                  lambda: (ego_vehicle.get_velocity().length() <= 0 or ego_vehicle.get_control().brake > ego_vehicle.get_control().throttle) or not (traffic_light_status[0] and not traffic_light_status[1])
+                  )
     ]
 
     coverage = Coverage(active_assertions,world_state.coverage_space)
@@ -90,6 +97,7 @@ def main():
         non_ego_actors = [x for x in non_ego_actors if x.id != ego_vehicle.id]
         non_ego_vehicles = [x for x in non_ego_vehicles if x.id != ego_vehicle.id]
 
+        traffic_light_status = american_traffic_light_status(ego_vehicle,map,world)
         current_junction = currentJunction(ego_vehicle,map)
 
         # Might cause issues for double junctions
@@ -150,6 +158,17 @@ def vehicleInJunction(vehicle: carla.Actor,junction: carla.Junction,extentMargin
     if nbb.contains(vehicle.get_transform().location + carla.Vector3D(0,0,extentMargins.z/2),carla.Transform(bb.location,bb.rotation)):
         return True
     return False
+
+# Returns a tuple indicating if the vehicle would be at a traffic light if it was driving on the right and if the light is green
+def american_traffic_light_status(ego_vehicle,map,world):
+    ego_loc = ego_vehicle.get_location()
+    ego_wp = map.get_waypoint(ego_loc)
+    right_lane_wp = map.get_waypoint(ego_loc + ego_vehicle.get_transform().get_right_vector() * ego_wp.lane_width)
+    lights = world.get_traffic_lights_from_waypoint(right_lane_wp,10)
+    if len(lights) > 0:
+        return (True, lights[0].get_state() == carla.TrafficLightState.Green)
+    else:
+        return (False, False)
 
 def locationWithinBoxInFrontOfVehicle(from_vehicle: carla.Actor,location: carla.Location,box_length: float,world):
     
