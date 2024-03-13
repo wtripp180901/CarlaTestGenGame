@@ -1,15 +1,21 @@
 import carla
 import time
 
-def stationaryCollision(client: carla.Client):
+def stationaryCollision(client: carla.Client,other_actor_bp: str):
     world = client.get_world()
     ego_bp = world.get_blueprint_library().filter("vehicle.audi.a2")[0]
     ego_bp.set_attribute('role_name', 'hero')
     ego = world.spawn_actor(ego_bp, world.get_map().get_spawn_points()[0])
     world.get_spectator().set_transform(ego.get_transform())
-    world.spawn_actor(world.get_blueprint_library().filter("vehicle.audi.etron")[0], carla.Transform(ego.get_transform().location + carla.Vector3D(100,0,0),ego.get_transform().rotation))
+    world.spawn_actor(world.get_blueprint_library().filter(other_actor_bp)[0], carla.Transform(ego.get_transform().location + carla.Vector3D(100,0,0),ego.get_transform().rotation))
     ego.apply_control(carla.VehicleControl(throttle=1.0))
     return world
+
+def stationaryVehicleCollision(client: carla.Client):
+    return stationaryCollision(client,"vehicle.audi.etron")
+
+def stationaryPedestrianCollision(client: carla.Client):
+    return stationaryCollision(client,"walker.pedestrian.0001")
 
 # Left turn with vehicle in left lane
 def TJunctionMinorUnsafe(client: carla.Client):
@@ -91,14 +97,15 @@ def reversed_spawn(spawn_point: carla.Transform):
     return carla.Transform(spawn_point.location, carla.Rotation(spawn_point.rotation.pitch,spawn_point.rotation.yaw + 180,spawn_point.rotation.roll))
 
 test_scenarios = {
-    "StationaryCollision" : stationaryCollision,
+    "StationaryCollision" : stationaryVehicleCollision,
     "TJunctionMinorRoad": TJunctionMinorUnsafe,
     "TJunctionSafeLeft": TJunctionMinorSafe,
     "TJunctionSafeRight": TJunctionMinorSafeRight,
     "TJunctionMajorRight": TJunctionMajorUnsafeRight,
     "TJunctionMajorStraight": TJunctionMajorStraightOn,
     "TJunctionRight": TJunctionMinorRight,
-    "Roundabout": Roundabout
+    "Roundabout": Roundabout,
+    "PedestrianCollision": stationaryPedestrianCollision
 }
 
 def setupForTest(test_name: str,client: carla.Client) -> carla.World:

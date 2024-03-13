@@ -10,6 +10,7 @@ import test_setup
 import numpy as np
 import score_writer
 from world_state import WorldState
+from fnmatch import fnmatch
 
 class TestActor:
     def __init__(self):
@@ -48,6 +49,8 @@ def main():
         return -1
     
     non_ego_actors = [x for x in non_ego_actors if x.id != ego_vehicle.id]
+    other_vehicles_and_pedestrians = [x for x in non_ego_actors if fnmatch(x.type_id,"*vehicle*") or fnmatch(x.type_id,"*walker*")]
+    print(len(other_vehicles_and_pedestrians))
     non_ego_vehicles = [x for x in non_ego_vehicles if x.id != ego_vehicle.id]
 
     global off_road_event_flag
@@ -64,8 +67,8 @@ def main():
     active_assertions = [
         Assertion(126, 0,
                 "Maintain a safe stopping distance",
-                (lambda: any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(ego_vehicle.get_velocity().length()) + 5,world) for t in non_ego_vehicles)),
-                (lambda: not any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(ego_vehicle.get_velocity().length()),world) for t in non_ego_vehicles))
+                (lambda: any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(ego_vehicle.get_velocity().length()) + 5,world) for t in other_vehicles_and_pedestrians)),
+                (lambda: not any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(ego_vehicle.get_velocity().length()),world) for t in other_vehicles_and_pedestrians))
                 ),
         Assertion(124, 0,
                 "You must not exceed maximum speed limits",
@@ -196,8 +199,8 @@ def locationWithinBoxInFrontOfVehicle(from_vehicle: carla.Actor,location: carla.
     directionVector = transform.get_forward_vector()
 
     box = carla.BoundingBox(carla.Vector3D(0,0,0),
-                            carla.Vector3D((box_length/2),extents.y,extents.z))
-    world.debug.draw_box(carla.BoundingBox(centre + directionVector * (extents.x + box_length/2),carla.Vector3D((box_length/2),extents.y,extents.z)),transform.rotation,life_time=0.1)
+                            carla.Vector3D((box_length/2),extents.y,2 * extents.z))
+    world.debug.draw_box(carla.BoundingBox(centre + directionVector * (extents.x + box_length/2),carla.Vector3D((box_length/2),extents.y,2 * extents.z)),transform.rotation,life_time=0.1)
     return box.contains(location,carla.Transform(centre + directionVector * (extents.x + box_length/2),transform.rotation))
                    
 
