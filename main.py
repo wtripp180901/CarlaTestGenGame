@@ -17,15 +17,13 @@ class TestActor:
     def getPos(self):
         return self.pos
 
+off_road_event_flag = False
+
 def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-s","--scenario",default="none")
     args = parser.parse_args()
-    
-    ego_vehicle = None
-    non_ego_actors = None
-    non_ego_vehicles = None
 
     has_junction = False
     junction_status = JunctionStates.NONE
@@ -36,6 +34,27 @@ def main():
     world = test_setup.setupForTest(args.scenario,client)
     world_state = WorldState(world)
     map = world.get_map()
+
+    ego_vehicle = None
+    non_ego_actors = world.get_actors()
+    non_ego_vehicles = non_ego_actors.filter('*vehicle*')
+
+    for i in range(len(non_ego_actors)):
+        if non_ego_actors[i].attributes.get('role_name') == 'hero':
+            ego_vehicle = non_ego_actors[i]
+            break
+    if ego_vehicle == None:
+        print("Couldn't find ego vehicle in",len(non_ego_vehicles),"vehicles searched")
+        return -1
+    
+    non_ego_actors = [x for x in non_ego_actors if x.id != ego_vehicle.id]
+    non_ego_vehicles = [x for x in non_ego_vehicles if x.id != ego_vehicle.id]
+
+    global off_road_event_flag
+    off_road_event_flag = False
+    li_blueprint = world.get_blueprint_library().find('sensor.other.lane_invasion')
+    lane_invasion_sensor = world.spawn_actor(li_blueprint,carla.Transform(carla.Location(0,0,0)),attach_to=ego_vehicle)
+    lane_invasion_sensor.listen(lane_callback)
 
     for i,s in enumerate(world.get_map().get_spawn_points()):
         world.debug.draw_string(s.location + carla.Vector3D(0,0,2),str(i),life_time=60)
@@ -77,25 +96,16 @@ def main():
                   "Must stop at traffic lights",
                   lambda: traffic_light_status[0],
                   lambda: (ego_vehicle.get_velocity().length() <= 0 or ego_vehicle.get_control().brake > ego_vehicle.get_control().throttle) or not (traffic_light_status[0] and not traffic_light_status[1])
-                  )
+                  ),
+        Assertion(0,1,
+                  "Stay on road",
+                  lambda: True,
+                  lambda: not off_road_event_flag)
     ]
 
     coverage = Coverage(active_assertions,world_state.coverage_space)
 
     while True:
-        non_ego_actors = world.get_actors()
-        non_ego_vehicles = non_ego_actors.filter('*vehicle*')
-
-        for i in range(len(non_ego_actors)):
-            if non_ego_actors[i].attributes.get('role_name') == 'hero':
-                ego_vehicle = non_ego_actors[i]
-                break
-        if ego_vehicle == None:
-            print("Couldn't find ego vehicle in",len(non_ego_vehicles),"vehicles searched")
-            return -1
-        
-        non_ego_actors = [x for x in non_ego_actors if x.id != ego_vehicle.id]
-        non_ego_vehicles = [x for x in non_ego_vehicles if x.id != ego_vehicle.id]
 
         traffic_light_status = american_traffic_light_status(ego_vehicle,map,world)
         current_junction = currentJunction(ego_vehicle,map)
@@ -122,7 +132,15 @@ def main():
 
         if score_change != 0:
             score_writer.add_and_update_scenario_score(score_change)
+
+        off_road_event_flag = False
         time.sleep(0.1)
+
+def lane_callback(li_event):
+    global off_road_event_flag
+    crossed_markings = [l.type for l in li_event.crossed_lane_markings]
+    if any([c in [carla.LaneMarkingType.Grass,carla.LaneMarkingType.Curb,carla.LaneMarkingType.NONE] for c in crossed_markings]):
+        off_road_event_flag = True
 
 def assertionCheckTick(assertions: List[assertion.Assertion],qualitative_coverage_state: List[Tuple[CoverageVariable,Enum]]):
     score_change = 0
