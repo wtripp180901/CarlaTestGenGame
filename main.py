@@ -107,7 +107,7 @@ def main():
                   "Stop to let emergency service vehicles pass",
                   lambda: active_emergency_vehicle_within_distance(ego_vehicle,world,50),
                   lambda: parked_left(ego_vehicle,map) or not active_emergency_vehicle_within_distance(ego_vehicle,world,30),
-                  validityRequirements=ValidityRequirement({CoverageVariable.EMERGENCY_VEHICLE_STATUS: [EmergencyVehicleStatus.PRESENT,EmergencyVehicleStatus.SIREN]},None,False)
+                  validityRequirements=ValidityRequirement(None,{CoverageVariable.EMERGENCY_VEHICLE_STATUS: [EmergencyVehicleStatus.ABSENT]},True)
                   ),
         Assertion(238,0,
                   "No waiting or parking on yellow or red lines",

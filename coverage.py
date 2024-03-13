@@ -68,7 +68,7 @@ class Coverage:
                     for v in req.absent_variables:
                         i = qual_vars.index(v)
                         var_width = len(self.coverage_variable_set.qualitative[i][1])
-                        self.total_size -= (var_width - len(req.present_variables[v])) * (self.coverage_variable_set.macro_bin_count / var_width)
+                        self.total_size -= (var_width - len(req.absent_variables[v])) * (self.coverage_variable_set.macro_bin_count / var_width)
                 if req.present_variables != None:
                     cum_var_width = 1
                     cum_valid_cases = 1
