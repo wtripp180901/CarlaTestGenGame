@@ -20,6 +20,7 @@ class TestActor:
 
 off_road_event_flag = False
 static_collision_event_flag = False
+no_stopping_line_event_flag = False
 
 def main():
 
@@ -54,6 +55,7 @@ def main():
     non_ego_vehicles = [x for x in non_ego_vehicles if x.id != ego_vehicle.id]
 
     global off_road_event_flag
+    global no_stopping_line_event_flag
     off_road_event_flag = False
     li_blueprint = world.get_blueprint_library().find('sensor.other.lane_invasion')
     lane_invasion_sensor = world.spawn_actor(li_blueprint,carla.Transform(carla.Location(0,0,0)),attach_to=ego_vehicle)
@@ -107,6 +109,11 @@ def main():
                   lambda: parked_left(ego_vehicle,map) or not active_emergency_vehicle_within_distance(ego_vehicle,world,30),
                   validityRequirements=ValidityRequirement({CoverageVariable.EMERGENCY_VEHICLE_STATUS: [EmergencyVehicleStatus.PRESENT,EmergencyVehicleStatus.SIREN]},None,False)
                   ),
+        Assertion(238,0,
+                  "No waiting or parking on yellow or red lines",
+                  lambda: not active_emergency_vehicle_within_distance(ego_vehicle,world,50),
+                  lambda: not (parked_left(ego_vehicle,map) and no_stopping_line_event_flag)
+                  ),
         Assertion(0,0,
                   "Must stop at traffic lights",
                   lambda: traffic_light_status[0],
@@ -154,6 +161,7 @@ def main():
 
         off_road_event_flag = False
         static_collision_event_flag = False
+        no_stopping_line_event_flag = False
         time.sleep(0.1)
 
 def vehicle_or_pedestrian(actor):
@@ -174,9 +182,13 @@ def active_emergency_vehicle_within_distance(ego_vehicle,world,distance):
 
 def lane_callback(li_event):
     global off_road_event_flag
+    global no_stopping_line_event_flag
     crossed_markings = [l.type for l in li_event.crossed_lane_markings]
+    colors = [l.color for l in li_event.crossed_lane_markings]
     if any([c in [carla.LaneMarkingType.Grass,carla.LaneMarkingType.Curb,carla.LaneMarkingType.NONE] for c in crossed_markings]):
         off_road_event_flag = True
+    if any([c in [carla.LaneMarkingColor.Red,carla.LaneMarkingColor.Yellow] for c in colors]):
+        no_stopping_line_event_flag = True
 
 def collision_callback(col_event):
     global static_collision_event_flag
@@ -200,8 +212,7 @@ def assertionCheckTick(assertions: List[assertion.Assertion],qualitative_coverag
                     triggered_assertions.append(assertions[i])
             if assertions[i].violated and not violated_before_tick:
                 if assertions[i].zero_value:
-                    print("Unfair test:",assertions[i].description,"-1")
-                    score_change -= 1
+                    print("Unfair test:",assertions[i].description,"+0")
                 else:
                     print("Bug found:",assertions[i].description,"+1")
                     score_change += 1
