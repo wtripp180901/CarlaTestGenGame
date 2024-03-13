@@ -19,6 +19,7 @@ class TestActor:
         return self.pos
 
 off_road_event_flag = False
+static_collision_event_flag = False
 
 def main():
 
@@ -49,8 +50,7 @@ def main():
         return -1
     
     non_ego_actors = [x for x in non_ego_actors if x.id != ego_vehicle.id]
-    other_vehicles_and_pedestrians = [x for x in non_ego_actors if fnmatch(x.type_id,"*vehicle*") or fnmatch(x.type_id,"*walker*")]
-    print(len(other_vehicles_and_pedestrians))
+    other_vehicles_and_pedestrians = [x for x in non_ego_actors if vehicle_or_pedestrian(x)]
     non_ego_vehicles = [x for x in non_ego_vehicles if x.id != ego_vehicle.id]
 
     global off_road_event_flag
@@ -58,6 +58,12 @@ def main():
     li_blueprint = world.get_blueprint_library().find('sensor.other.lane_invasion')
     lane_invasion_sensor = world.spawn_actor(li_blueprint,carla.Transform(carla.Location(0,0,0)),attach_to=ego_vehicle)
     lane_invasion_sensor.listen(lane_callback)
+
+    global static_collision_event_flag
+    static_collision_event_flag = False
+    collision_blueprint = world.get_blueprint_library().find('sensor.other.collision')
+    collision_sensor = world.spawn_actor(collision_blueprint,carla.Transform(carla.Location(0,0,0)),attach_to=ego_vehicle)
+    collision_sensor.listen(collision_callback)
 
     for i,s in enumerate(world.get_map().get_spawn_points()):
         world.debug.draw_string(s.location + carla.Vector3D(0,0,2),str(i),life_time=60)
@@ -103,7 +109,11 @@ def main():
         Assertion(0,1,
                   "Stay on road",
                   lambda: True,
-                  lambda: not off_road_event_flag)
+                  lambda: not off_road_event_flag),
+        Assertion(0,2,
+                  "Collision with terrain",
+                  lambda: True,
+                  lambda: not static_collision_event_flag)
     ]
 
     coverage = Coverage(active_assertions,world_state.coverage_space)
@@ -137,13 +147,22 @@ def main():
             score_writer.add_and_update_scenario_score(score_change)
 
         off_road_event_flag = False
+        static_collision_event_flag = False
         time.sleep(0.1)
+
+def vehicle_or_pedestrian(actor):
+    fnmatch(actor.type_id,"*vehicle*") or fnmatch(actor.type_id,"*walker*")
 
 def lane_callback(li_event):
     global off_road_event_flag
     crossed_markings = [l.type for l in li_event.crossed_lane_markings]
     if any([c in [carla.LaneMarkingType.Grass,carla.LaneMarkingType.Curb,carla.LaneMarkingType.NONE] for c in crossed_markings]):
         off_road_event_flag = True
+
+def collision_callback(col_event):
+    global static_collision_event_flag
+    if not vehicle_or_pedestrian(col_event.other_actor):
+        static_collision_event_flag = True
 
 def assertionCheckTick(assertions: List[assertion.Assertion],qualitative_coverage_state: List[Tuple[CoverageVariable,Enum]]):
     score_change = 0
