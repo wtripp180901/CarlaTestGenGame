@@ -9,6 +9,12 @@ class CoverageVariable(Enum):
     CARS_PRESENT = 5
     SPEED_LIMIT = 6
     ROAD_GRAPH = 7
+    EMERGENCY_VEHICLE_STATUS = 8
+
+class EmergencyVehicleStatus(Enum):
+    ABSENT = 0
+    PRESENT = 1
+    SIREN = 2
 
 class BooleanEnum(Enum):
     TRUE = 0

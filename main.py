@@ -9,7 +9,7 @@ import time
 import test_setup
 import numpy as np
 import score_writer
-from world_state import WorldState
+from world_state import WorldState, dot2d, get_emergency_vehicle_status
 from fnmatch import fnmatch
 
 class TestActor:
@@ -101,6 +101,12 @@ def main():
                   lambda: junction_status != JunctionStates.NONE,
                   lambda: ((ego_vehicle.get_light_state() == carla.VehicleLightState.RightBlinker or not ego_vehicle.get_control().steer > 0) and (ego_vehicle.get_light_state() == carla.VehicleLightState.LeftBlinker or not ego_vehicle.get_control().steer < 0)) or not junction_status != JunctionStates.NONE,
                 ),
+        Assertion(219,0,
+                  "Stop to let emergency service vehicles pass",
+                  lambda: active_emergency_vehicle_within_distance(ego_vehicle,world,50),
+                  lambda: parked_left(ego_vehicle,map) or not active_emergency_vehicle_within_distance(ego_vehicle,world,30),
+                  validityRequirements=ValidityRequirement({CoverageVariable.EMERGENCY_VEHICLE_STATUS: [EmergencyVehicleStatus.PRESENT,EmergencyVehicleStatus.SIREN]},None,False)
+                  ),
         Assertion(0,0,
                   "Must stop at traffic lights",
                   lambda: traffic_light_status[0],
@@ -151,7 +157,20 @@ def main():
         time.sleep(0.1)
 
 def vehicle_or_pedestrian(actor):
-    fnmatch(actor.type_id,"*vehicle*") or fnmatch(actor.type_id,"*walker*")
+    return fnmatch(actor.type_id,"*vehicle*") or fnmatch(actor.type_id,"*walker*")
+
+def parked_left(ego_vehicle,map):
+    ego_loc = ego_vehicle.get_location()
+    ego_wp = map.get_waypoint(ego_vehicle.get_location())
+    vec_to_ego = ego_loc - ego_wp.transform.location
+    if ego_vehicle.get_velocity().length() <= 0 and dot2d(vec_to_ego,ego_wp.transform.get_right_vector()) < 0 and vec_to_ego.length() >= ego_wp.lane_width/8:
+        return True
+    else:
+        return False
+
+def active_emergency_vehicle_within_distance(ego_vehicle,world,distance):
+    _, active_evs = get_emergency_vehicle_status(world)
+    return any([(e.get_location() - ego_vehicle.get_location()).length() < distance for e in active_evs])
 
 def lane_callback(li_event):
     global off_road_event_flag

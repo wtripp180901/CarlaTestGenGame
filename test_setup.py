@@ -11,6 +11,29 @@ def stationaryCollision(client: carla.Client,other_actor_bp: str):
     ego.apply_control(carla.VehicleControl(throttle=1.0))
     return world
 
+def policeCar(client: carla.Client, ego_offset, ego_throttle):
+    world = client.get_world()
+    spawn_trans = world.get_map().get_spawn_points()[0]
+    police_car = world.spawn_actor(world.get_blueprint_library().filter("vehicle.dodge.charger_police")[0], carla.Transform(spawn_trans.location + carla.Vector3D(0,1,0),spawn_trans.rotation))
+    ego_bp = world.get_blueprint_library().filter("vehicle.audi.a2")[0]
+    ego_bp.set_attribute('role_name', 'hero')
+    ego = world.spawn_actor(ego_bp, carla.Transform(police_car.get_transform().location + carla.Vector3D(100,ego_offset,0),police_car.get_transform().rotation))
+    world.get_spectator().set_transform(ego.get_transform())
+    
+    police_car.set_light_state(carla.VehicleLightState.Special1)
+    police_car.apply_control(carla.VehicleControl(throttle=1.0))
+    ego.apply_control(carla.VehicleControl(throttle=ego_throttle))
+    return world
+
+def policeComply(client: carla.Client):
+    return policeCar(client,-2,0)
+
+def policeTravelLeft(client: carla.Client):
+    return policeCar(client,-2,0.2)
+
+def policeNotPulledOver(client: carla.Client):
+    return policeCar(client,0,0)
+
 def stationaryVehicleCollision(client: carla.Client):
     return stationaryCollision(client,"vehicle.audi.etron")
 
@@ -105,7 +128,10 @@ test_scenarios = {
     "TJunctionMajorStraight": TJunctionMajorStraightOn,
     "TJunctionRight": TJunctionMinorRight,
     "Roundabout": Roundabout,
-    "PedestrianCollision": stationaryPedestrianCollision
+    "PedestrianCollision": stationaryPedestrianCollision,
+    "PoliceComply": policeComply,
+    "PoliceLeft": policeTravelLeft,
+    "PoliceNotPulledOver": policeNotPulledOver
 }
 
 def setupForTest(test_name: str,client: carla.Client) -> carla.World:

@@ -4,6 +4,7 @@ from validity_requirements import *
 from typing import List, Tuple
 import numpy as np
 from coverage_variables import *
+from fnmatch import fnmatch
 
 class WorldState:
     def __init__(self,world: carla.World):
@@ -16,7 +17,8 @@ class WorldState:
             (CoverageVariable.SPEED_LIMIT,SpeedLimits),
             (CoverageVariable.ROAD_GRAPH,RoadGraphs),
             (CoverageVariable.PEDESTRIAN_DENSITY,Levels),
-            (CoverageVariable.VEHICLE_DENSITY,Levels)
+            (CoverageVariable.VEHICLE_DENSITY,Levels),
+            (CoverageVariable.EMERGENCY_VEHICLE_STATUS,EmergencyVehicleStatus)
         ]
         )
         self._last_road_graph_string = "TTTT"
@@ -29,6 +31,7 @@ class WorldState:
             print("invalid speed limit: ",ego_vehicle.get_speed_limit())
             enumerated_speed_limit = SpeedLimits.SEVENTY
         self._last_road_graph_string = self.get_road_graph(map.get_waypoint(ego_vehicle.get_location()))
+        emergency_vehicle_status, _ = get_emergency_vehicle_status(self.world)
 
         enumerated_vars = [
             (CoverageVariable.RAIN, getWeatherLevel(self.world.get_weather().precipitation)),
@@ -38,7 +41,8 @@ class WorldState:
             (CoverageVariable.SPEED_LIMIT, enumerated_speed_limit),
             (CoverageVariable.ROAD_GRAPH, RoadGraphs[self._last_road_graph_string]),
             (CoverageVariable.VEHICLE_DENSITY, get_density_level(get_actor_density(non_ego_vehicles,ego_vehicle.get_location(),25))),
-            (CoverageVariable.PEDESTRIAN_DENSITY, get_density_level(get_actor_density(self.world.get_actors().filter("*walker*"),ego_vehicle.get_location(),25)))
+            (CoverageVariable.PEDESTRIAN_DENSITY, get_density_level(get_actor_density(self.world.get_actors().filter("*walker*"),ego_vehicle.get_location(),25))),
+            (CoverageVariable.EMERGENCY_VEHICLE_STATUS,emergency_vehicle_status)
         ]
         return enumerated_vars
 
@@ -130,6 +134,17 @@ class WorldState:
         if output_string == "FFFF":
             output_string = self._last_road_graph_string
         return output_string
+
+# Returns if an emergency vehicle is present and if their siren is on + the vehicles with their sirens on
+def get_emergency_vehicle_status(world):
+    emergency_vehicles = [x for x in world.get_actors() if fnmatch(x.type_id,"*ambulance*") or fnmatch(x.type_id,"*police*") or fnmatch(x.type_id,"*firetruck*")]
+    if len(emergency_vehicles) > 0:
+        sirens_on = [v for v in emergency_vehicles if v.get_light_state() == carla.VehicleLightState.Special1 or v.get_light_state() == carla.VehicleLightState.Special2]
+        if len(sirens_on) > 0:
+            return EmergencyVehicleStatus.SIREN, sirens_on
+        return EmergencyVehicleStatus.PRESENT, []
+    else:
+        return EmergencyVehicleStatus.ABSENT, []
 
 def get_actor_density(full_actor_list,ego_pos,distance):
     return len([e for e in full_actor_list if (e.get_location() - ego_pos).length() < distance])/(3.14 * distance * distance)
