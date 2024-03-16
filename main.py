@@ -21,6 +21,8 @@ class TestActor:
 off_road_event_flag = False
 static_collision_event_flag = False
 no_stopping_line_event_flag = False
+no_overtaking_event_flag = False
+crossing_into_right_lane_event_flag = False
 
 def main():
 
@@ -39,8 +41,8 @@ def main():
     map = world.get_map()
 
     ego_vehicle = None
-    non_ego_actors = world.get_actors()
-    non_ego_vehicles = non_ego_actors.filter('*vehicle*')
+    non_ego_actors = [x for x in world.get_actors()]
+    non_ego_vehicles = [x for x in world.get_actors().filter('*vehicle*')]
 
     for i in range(len(non_ego_actors)):
         if non_ego_actors[i].attributes.get('role_name') == 'hero':
@@ -53,9 +55,12 @@ def main():
     non_ego_actors = [x for x in non_ego_actors if x.id != ego_vehicle.id]
     other_vehicles_and_pedestrians = [x for x in non_ego_actors if vehicle_or_pedestrian(x)]
     non_ego_vehicles = [x for x in non_ego_vehicles if x.id != ego_vehicle.id]
+    print(len(non_ego_vehicles))
 
     global off_road_event_flag
+    global no_overtaking_event_flag
     global no_stopping_line_event_flag
+    global crossing_into_right_lane_event_flag
     off_road_event_flag = False
     li_blueprint = world.get_blueprint_library().find('sensor.other.lane_invasion')
     lane_invasion_sensor = world.spawn_actor(li_blueprint,carla.Transform(carla.Location(0,0,0)),attach_to=ego_vehicle)
@@ -114,6 +119,16 @@ def main():
                   lambda: not active_emergency_vehicle_within_distance(ego_vehicle,world,50),
                   lambda: not (parked_left(ego_vehicle,map) and no_stopping_line_event_flag)
                   ),
+        Assertion(129,0,
+                  "Must not cross overtake with solid road markings",
+                  lambda: True,
+                  lambda: not no_overtaking_event_flag),
+        Assertion(160,
+                  0,
+                  "Stay in the left lane unless safely overtaking",
+                  lambda: True,
+                  lambda: not (not_in_left_lane(ego_vehicle,map,junction_status) and not any([vehicle_in_overtake_range(ego_vehicle,v) for v in non_ego_vehicles]))
+                  ),
         Assertion(0,0,
                   "Must stop at traffic lights",
                   lambda: traffic_light_status[0],
@@ -162,7 +177,24 @@ def main():
         off_road_event_flag = False
         static_collision_event_flag = False
         no_stopping_line_event_flag = False
+        no_overtaking_event_flag = False
+        crossing_into_right_lane_event_flag = False
         time.sleep(0.1)
+
+def not_in_left_lane(ego_vehicle,map,junction_status):
+    global crossing_into_right_lane_event_flag
+    ego_loc = ego_vehicle.get_location()
+    ego_wp = map.get_waypoint(ego_loc)
+    return junction_status == JunctionStates.NONE and (crossing_into_right_lane_event_flag or
+                                                        (ego_wp.transform.location - map.get_waypoint(ego_loc + ego_vehicle.get_transform().get_right_vector() * ego_wp.lane_width).transform.location).length() < 0.1)
+
+# Returns true if faster than other vehicle, within sensible range and pther vehicle is to the left
+def vehicle_in_overtake_range(ego_vehicle,other_vehicle):
+    vec_to_other = other_vehicle.get_location() - ego_vehicle.get_location()
+    return (ego_vehicle.get_velocity().length() > other_vehicle.get_velocity().length() and 
+            vec_to_other.length() < ego_vehicle.bounding_box.extent.y * 7 and
+            dot2d(vec_to_other,ego_vehicle.get_transform().get_right_vector()) < 0
+    )
 
 def vehicle_or_pedestrian(actor):
     return fnmatch(actor.type_id,"*vehicle*") or fnmatch(actor.type_id,"*walker*")
@@ -183,10 +215,16 @@ def active_emergency_vehicle_within_distance(ego_vehicle,world,distance):
 def lane_callback(li_event):
     global off_road_event_flag
     global no_stopping_line_event_flag
+    global no_overtaking_event_flag
+    global crossing_into_right_lane_event_flag
     crossed_markings = [l.type for l in li_event.crossed_lane_markings]
     colors = [l.color for l in li_event.crossed_lane_markings]
     if any([c in [carla.LaneMarkingType.Grass,carla.LaneMarkingType.Curb,carla.LaneMarkingType.NONE] for c in crossed_markings]):
         off_road_event_flag = True
+    if any([c in [carla.LaneMarkingType.SolidSolid,carla.LaneMarkingType.SolidBroken] for c in crossed_markings]):
+        no_overtaking_event_flag = True
+    if any([c in [carla.LaneMarkingType.SolidSolid,carla.LaneMarkingType.SolidBroken,carla.LaneMarkingType.Broken,carla.LaneMarkingType.BrokenSolid,carla.LaneMarkingType.BrokenBroken] for c in crossed_markings]):
+        crossing_into_right_lane_event_flag = True
     if any([c in [carla.LaneMarkingColor.Red,carla.LaneMarkingColor.Yellow] for c in colors]):
         no_stopping_line_event_flag = True
 

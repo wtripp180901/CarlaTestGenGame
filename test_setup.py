@@ -1,6 +1,21 @@
 import carla
 import time
 
+def wrongLane(client: carla.Client,overtake=False):
+    world = client.get_world()
+    ego_bp = world.get_blueprint_library().filter("vehicle.audi.a2")[0]
+    ego_bp.set_attribute('role_name', 'hero')
+    spawn = world.get_map().get_spawn_points()[53]
+    ego = world.spawn_actor(ego_bp, carla.Transform(spawn.location + carla.Vector3D(-10,0,0),spawn.rotation))
+    world.get_spectator().set_transform(ego.get_transform())
+    if overtake:
+        world.spawn_actor(world.get_blueprint_library().filter("vehicle.audi.etron")[0],world.get_map().get_spawn_points()[53])
+    ego.apply_control(carla.VehicleControl(throttle=0.5,steer=0.1))
+    return world
+
+def wrongLaneOvertake(client: carla.Client):
+    return wrongLane(client,True)
+
 def stationaryCollision(client: carla.Client,other_actor_bp: str):
     world = client.get_world()
     ego_bp = world.get_blueprint_library().filter("vehicle.audi.a2")[0]
@@ -131,7 +146,9 @@ test_scenarios = {
     "PedestrianCollision": stationaryPedestrianCollision,
     "PoliceComply": policeComply,
     "PoliceLeft": policeTravelLeft,
-    "PoliceNotPulledOver": policeNotPulledOver
+    "PoliceNotPulledOver": policeNotPulledOver,
+    "WrongLane": wrongLane,
+    "Overtake": wrongLaneOvertake
 }
 
 def setupForTest(test_name: str,client: carla.Client) -> carla.World:
