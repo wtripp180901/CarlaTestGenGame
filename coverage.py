@@ -7,8 +7,6 @@ import csv
 from coverage_variables import *
 from validity_requirements import ValidityRequirement
 
-coverage_file_path = "out/coverage.csv"
-
 class CoverageStates(Enum):
     BUG = 0
     COVERED = 1
@@ -39,11 +37,12 @@ class CoverageVariableSet:
 
 
 class Coverage:
-    def __init__(self,assertions: List[assertion.Assertion],coverage_variable_set: CoverageVariableSet):
+    def __init__(self,coverage_file_path: str,assertions: List[assertion.Assertion],coverage_variable_set: CoverageVariableSet):
         self.coverage_variable_set = coverage_variable_set
         self.micro_bin_ids = [get_micro_bin_id(a) for a in assertions]
         self.micro_bin_count = len(assertions)
         self.total_size = self.micro_bin_count * self.coverage_variable_set.macro_bin_count
+        self.coverage_file_path = coverage_file_path
         self.restrict_coverage_space(assertions)
 
         if os.path.isfile(coverage_file_path):
@@ -124,7 +123,7 @@ class Coverage:
     # TODO: change so only rewrites whole file if existing row edited
     def write_coverage(self):
         fieldnames = self.get_csv_header()
-        with open(coverage_file_path, 'w', newline='') as coveragefile:
+        with open(self.coverage_file_path, 'w', newline='') as coveragefile:
             writer = csv.writer(coveragefile)
             writer.writerow(fieldnames)
             for key in self._covered_cases:
@@ -135,7 +134,7 @@ class Coverage:
         
     def parse_coverage_file(self):
         covered_cases = {}
-        with open(coverage_file_path, 'r', newline='') as coveragefile:
+        with open(self.coverage_file_path, 'r', newline='') as coveragefile:
             reader = csv.reader(coveragefile)
             data = list(reader)
             headers = data[0]

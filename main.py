@@ -144,7 +144,11 @@ def main():
                   lambda: not static_collision_event_flag)
     ]
 
-    coverage = Coverage(active_assertions,world_state.coverage_space)
+    session_timestamp = time.strftime("%d-%m-%Y_%H-%M-%S",time.localtime())
+
+    global_coverage = Coverage("out/global_coverage.csv",active_assertions,world_state.coverage_space)
+    session_coverage = Coverage("out/coverage_"+session_timestamp+".csv",active_assertions,world_state.coverage_space)
+    scorer = score_writer.ScoreWriter("out/score_"+session_timestamp+".csv")
 
     while True:
 
@@ -163,7 +167,8 @@ def main():
 
         qual_vars = world_state.get_coverage_state(ego_vehicle,non_ego_vehicles,map)
         score_change, triggered_assertions, covered_assertions, valid_assertions = assertionCheckTick(active_assertions,qual_vars)
-        coverage.try_cover(qual_vars,triggered_assertions,covered_assertions,valid_assertions)
+        global_coverage.try_cover(qual_vars,triggered_assertions,covered_assertions,valid_assertions)
+        session_coverage.try_cover(qual_vars,triggered_assertions,covered_assertions,valid_assertions)
 
         # world.debug.draw_line(ego_wp.transform.location,ego_wp.transform.location + carla.Vector3D(0,0,5),life_time=0.1)
         # for w in ego_wp.next(10):
@@ -172,7 +177,7 @@ def main():
         #     world.debug.draw_line(w.transform.location,w.transform.location + carla.Vector3D(0,0,5),color=carla.Color(0,0,255),life_time=0.1)
 
         if score_change != 0:
-            score_writer.add_and_update_scenario_score(score_change)
+            scorer.add_and_update_scenario_score(score_change)
 
         off_road_event_flag = False
         static_collision_event_flag = False
