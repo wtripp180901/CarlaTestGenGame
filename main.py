@@ -193,6 +193,8 @@ def main():
         crossing_into_right_lane_event_flag = False
 
         game.update_score_text(str(scorer.score),str(session_coverage.get_num_cases()[2]),bug_descriptions)
+        global_max, _, global_covered = global_coverage.get_num_cases()
+        game.update_global_coverage_progress(global_covered,global_max)
         game.handle_input()
         game.render()
         clock.tick(10)
