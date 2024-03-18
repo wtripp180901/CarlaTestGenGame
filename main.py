@@ -11,6 +11,8 @@ import numpy as np
 import score_writer
 from world_state import WorldState, dot2d, get_emergency_vehicle_status
 from fnmatch import fnmatch
+import pygame
+from game import Game
 
 class TestActor:
     def __init__(self):
@@ -150,6 +152,10 @@ def main():
     session_coverage = Coverage("out/coverage_"+session_timestamp+".csv",active_assertions,world_state.coverage_space)
     scorer = score_writer.ScoreWriter("out/score_"+session_timestamp+".csv")
 
+    pygame.init()
+    clock = pygame.time.Clock()
+    game = Game()
+    
     while True:
 
         traffic_light_status = american_traffic_light_status(ego_vehicle,map,world)
@@ -184,7 +190,12 @@ def main():
         no_stopping_line_event_flag = False
         no_overtaking_event_flag = False
         crossing_into_right_lane_event_flag = False
-        time.sleep(0.1)
+
+        game.update_score_text(str(scorer.score),str(session_coverage.get_num_cases()[2]))
+        game.handle_input()
+        game.render()
+        clock.tick(10)
+
 
 def not_in_left_lane(ego_vehicle,map,junction_status):
     global crossing_into_right_lane_event_flag
