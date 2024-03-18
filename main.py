@@ -13,6 +13,7 @@ from world_state import WorldState, dot2d, get_emergency_vehicle_status
 from fnmatch import fnmatch
 import pygame
 from game import Game
+from os import linesep
 
 class TestActor:
     def __init__(self):
@@ -172,7 +173,7 @@ def main():
             print(junction_status)
 
         qual_vars = world_state.get_coverage_state(ego_vehicle,non_ego_vehicles,map)
-        score_change, triggered_assertions, covered_assertions, valid_assertions = assertionCheckTick(active_assertions,qual_vars)
+        score_change, triggered_assertions, covered_assertions, valid_assertions, bug_descriptions = assertionCheckTick(active_assertions,qual_vars)
         global_coverage.try_cover(qual_vars,triggered_assertions,covered_assertions,valid_assertions)
         session_coverage.try_cover(qual_vars,triggered_assertions,covered_assertions,valid_assertions)
 
@@ -191,7 +192,7 @@ def main():
         no_overtaking_event_flag = False
         crossing_into_right_lane_event_flag = False
 
-        game.update_score_text(str(scorer.score),str(session_coverage.get_num_cases()[2]))
+        game.update_score_text(str(scorer.score),str(session_coverage.get_num_cases()[2]),bug_descriptions)
         game.handle_input()
         game.render()
         clock.tick(10)
@@ -254,6 +255,7 @@ def assertionCheckTick(assertions: List[assertion.Assertion],qualitative_coverag
     valid_assertions = []
     covered_assertions = []
     triggered_assertions = []
+    triggered_descriptions = []
 
     for i in range(len(assertions)):
         if assertions[i].IsActive(qualitative_coverage_state):
@@ -266,12 +268,12 @@ def assertionCheckTick(assertions: List[assertion.Assertion],qualitative_coverag
                     triggered_assertions.append(assertions[i])
             if assertions[i].violated and not violated_before_tick:
                 if assertions[i].zero_value:
-                    print("Unfair test:",assertions[i].description,"+0")
+                    triggered_descriptions.append("- Unfair test: "+assertions[i].description)
                 else:
-                    print("Bug found:",assertions[i].description,"+1")
+                    triggered_descriptions.append("+ "+assertions[i].description)
                     score_change += 1
 
-    return score_change, triggered_assertions, covered_assertions, valid_assertions
+    return score_change, triggered_assertions, covered_assertions, valid_assertions, triggered_descriptions
 
 
 def vehicleInJunction(vehicle: carla.Actor,junction: carla.Junction,extentMargins: carla.Vector3D = carla.Vector3D(0,0,5)):
