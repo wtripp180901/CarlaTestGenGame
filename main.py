@@ -156,6 +156,7 @@ def main():
     pygame.init()
     clock = pygame.time.Clock()
     game = Game()
+    new_covered_cases_in_session = 0
     
     while True:
 
@@ -174,7 +175,7 @@ def main():
 
         qual_vars = world_state.get_coverage_state(ego_vehicle,non_ego_vehicles,map)
         score_change, triggered_assertions, covered_assertions, valid_assertions, bug_descriptions = assertionCheckTick(active_assertions,qual_vars)
-        global_coverage.try_cover(qual_vars,triggered_assertions,covered_assertions,valid_assertions)
+        new_covered_cases_in_session += global_coverage.try_cover(qual_vars,triggered_assertions,covered_assertions,valid_assertions)
         session_coverage.try_cover(qual_vars,triggered_assertions,covered_assertions,valid_assertions)
 
         # world.debug.draw_line(ego_wp.transform.location,ego_wp.transform.location + carla.Vector3D(0,0,5),life_time=0.1)
@@ -192,7 +193,7 @@ def main():
         no_overtaking_event_flag = False
         crossing_into_right_lane_event_flag = False
 
-        game.update_score_text(str(scorer.score),str(session_coverage.get_num_cases()[2]),bug_descriptions)
+        game.update_score_text(str(scorer.score),str(new_covered_cases_in_session),bug_descriptions)
         global_max, _, global_covered = global_coverage.get_num_cases()
         game.update_global_coverage_progress(global_covered,global_max)
         game.handle_input()

@@ -93,10 +93,10 @@ class Coverage:
         
         new_case = False
         new_uncovered = False
+        new_covered_cases = 0
         
         if not (key in self._covered_cases):
             self._covered_cases[key] = [CoverageStates.INVALID for _ in range(len(self.micro_bin_ids))]
-            print("New coverage bin found!")
             new_case = True
         
         for i, bin_id in enumerate(self.micro_bin_ids):
@@ -106,19 +106,21 @@ class Coverage:
                 new_uncovered = True
             
             if bin_id in [get_micro_bin_id(x) for x in violated_assertions] and (state == CoverageStates.COVERED or state == CoverageStates.UNCOVERED):
-                print("Undiscovered bug found for case!")
+                if state == CoverageStates.UNCOVERED:
+                    new_covered_cases += 1
                 self._covered_cases[key][i] = CoverageStates.BUG
                 new_case = True
             elif bin_id in [get_micro_bin_id(x) for x in covered_assertions] and state == CoverageStates.UNCOVERED:
-                print("New case found!")
                 self._covered_cases[key][i] = CoverageStates.COVERED
                 new_case = True
+                new_covered_cases += 1
             
         if new_case:
             self.write_coverage()
             self.print_coverage()
         elif new_uncovered:
             self.write_coverage()
+        return new_covered_cases
     
     # TODO: change so only rewrites whole file if existing row edited
     def write_coverage(self):
