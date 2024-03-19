@@ -1,5 +1,5 @@
 import argparse
-
+import random
 import carla
 from assertion import Assertion
 from validity_requirements import *
@@ -14,6 +14,7 @@ from fnmatch import fnmatch
 import pygame
 from game import Game
 from os import linesep
+import game_setup
 
 class TestActor:
     def __init__(self):
@@ -39,9 +40,16 @@ def main():
     
     client = carla.Client('localhost', 2000)
     client.set_timeout(10)
-    world = test_setup.setupForTest(args.scenario,client)
+    world, is_test_scenario = test_setup.setupForTest(args.scenario,client)
     world_state = WorldState(world)
     map = world.get_map()
+    spectator = world.get_spectator()
+    pygame.init()
+    screen = pygame.display.set_mode((640,480))
+
+    vehicle_paths = []
+    if not is_test_scenario:
+        vehicle_paths = game_setup.game_setup_loop(screen,spectator,world,map)
 
     ego_vehicle = None
     non_ego_actors = [x for x in world.get_actors()]
@@ -58,7 +66,6 @@ def main():
     non_ego_actors = [x for x in non_ego_actors if x.id != ego_vehicle.id]
     other_vehicles_and_pedestrians = [x for x in non_ego_actors if vehicle_or_pedestrian(x)]
     non_ego_vehicles = [x for x in non_ego_vehicles if x.id != ego_vehicle.id]
-    print(len(non_ego_vehicles))
 
     global off_road_event_flag
     global no_overtaking_event_flag
@@ -153,12 +160,14 @@ def main():
     session_coverage = Coverage("out/coverage_"+session_timestamp+".csv",active_assertions,world_state.coverage_space)
     scorer = score_writer.ScoreWriter("out/score_"+session_timestamp+".csv")
 
-    pygame.init()
     clock = pygame.time.Clock()
-    game = Game()
+    game = Game(screen)
     new_covered_cases_in_session = 0
     
     while True:
+
+        execute_vehicle_behaviour(vehicle_paths,world)
+        execute_ego_behaviour(ego_vehicle)
 
         traffic_light_status = american_traffic_light_status(ego_vehicle,map,world)
         current_junction = currentJunction(ego_vehicle,map)
@@ -200,6 +209,32 @@ def main():
         game.render()
         clock.tick(10)
 
+def execute_vehicle_behaviour(vehicle_paths: List[Tuple[carla.Actor,List[carla.Location]]],world):
+    vehicles = [v[0] for v in vehicle_paths]
+    paths = [p[1] for p in vehicle_paths]
+    threshold = 4
+
+    for i in range(len(vehicles)):
+        loc_vec_2d = vehicles[i].get_location()
+        loc_vec_2d.z = 0
+        if len(paths[i]) > 0 and (loc_vec_2d - paths[i][0]).length() < threshold:
+            del paths[i][0]
+        if len(paths[i]) > 0:
+            forward_vec = vehicles[i].get_transform().get_forward_vector()
+            # print(vehicles[i].get_location())
+            dir_to_point = paths[i][0] - loc_vec_2d
+            forward_vec.z = 0
+            dir_to_point.z = 0
+            dir_to_point = dir_to_point / dir_to_point.length()
+            steer = (1 - dot2d(forward_vec,dir_to_point))
+            if dot2d(vehicles[i].get_transform().get_right_vector(),dir_to_point) < 0:
+                steer *= -1
+            vehicles[i].apply_control(carla.VehicleControl(throttle=0.6,steer=steer))
+        else:
+            vehicles[i].apply_control(carla.VehicleControl(brake=1))
+
+def execute_ego_behaviour(ego_vehicle):
+    ego_vehicle.apply_control(carla.VehicleControl(throttle=random.uniform(0,1),steer=random.uniform(-1,1)))
 
 def not_in_left_lane(ego_vehicle,map,junction_status):
     global crossing_into_right_lane_event_flag

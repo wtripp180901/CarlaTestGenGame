@@ -154,6 +154,6 @@ test_scenarios = {
 def setupForTest(test_name: str,client: carla.Client) -> carla.World:
     test = test_scenarios.get(test_name)
     if test != None:
-        return test(client)
+        return test(client), True
     else:
-        return client.get_world()
+        return client.get_world(), False

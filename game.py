@@ -2,8 +2,8 @@ import pygame
 from typing import List
 
 class Game():
-    def __init__(self):
-        self.screen = pygame.display.set_mode((640,480))
+    def __init__(self,screen):
+        self.screen = screen
         self._init_text()
 
     def _init_text(self):
