@@ -30,7 +30,7 @@ def game_setup_loop(screen,spectator,world,map):
 
         cursor_location = spectator.get_location()
         cursor_location.z = 1
-        
+        world.debug.draw_point(cursor_location,life_time=0.017)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -51,13 +51,16 @@ def game_setup_loop(screen,spectator,world,map):
                         ego_vehicle_placed = True
                 if event.key == pygame.K_w and last_placed_vehicle != None:
                     current_path.append(cursor_location)
-                    world.debug.draw_point(cursor_location,life_time=0)
                 if event.key == pygame.K_RETURN:
                     current_path.insert(0,last_placed_vehicle.get_location())
                     vehicle_paths.append((last_placed_vehicle,current_path))
                     setting_up_scenario = False
 
+        for p in current_path:
+            world.debug.draw_line(p,p + carla.Vector3D(0,0,5),thickness=0.5,color=carla.Color(0,0,255),life_time=0.02)
+
         pygame.display.flip()
+        pygame.time.Clock().tick(60)
 
     for i in range(len(vehicle_paths)):
         for j in range(len(vehicle_paths[i][1])):

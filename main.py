@@ -209,6 +209,10 @@ def main():
         game.update_global_coverage_progress(global_covered,global_max)
         game.handle_input()
         game.render()
+        if (spectator.get_location() - ego_vehicle.get_location()).length() > 32:
+            spec_trans = spectator.get_transform()
+            ego_loc = ego_vehicle.get_location()
+            spectator.set_transform(carla.Transform(carla.Location(ego_loc.x,ego_loc.y,spec_trans.location.z),spec_trans.rotation))
         clock.tick(10)
 
 def execute_vehicle_behaviour(vehicle_paths: List[Tuple[carla.Actor,List[carla.Location]]],world):
