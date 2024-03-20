@@ -152,11 +152,11 @@ def get_actor_density(full_actor_list,ego_pos,distance):
 def get_density_level(density):
     if density <= 0:
         return Levels.NONE
-    elif density <= 0.03:
+    elif density <= 0.003:
         return Levels.LOW
-    elif density <= 0.08:
+    elif density <= 0.008:
         return Levels.MEDIUM
-    elif density <= 0.13:
+    elif density <= 0.013:
         return Levels.HIGH
     else:
         return Levels.VERY_HIGH
