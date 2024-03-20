@@ -30,7 +30,7 @@ def game_setup_loop(screen,spectator,world,map):
     last_placed_vehicle = None
     camera_speed = 0.25
     spectator_rotation = carla.Rotation(pitch=-90)
-    spectator_pos = map.get_spawn_points()[20].location + carla.Vector3D(0,0,30)
+    spectator_pos = map.get_spawn_points()[76].location + carla.Vector3D(0,0,30)
     
     vehicle_paths = []
     current_path = []
