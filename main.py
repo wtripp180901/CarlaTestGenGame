@@ -221,6 +221,7 @@ def execute_vehicle_behaviour(vehicle_paths: List[Tuple[carla.Actor,List[carla.L
     threshold = 4
 
     for i in range(len(vehicles)):
+        is_vehicle = fnmatch(vehicles[i].type_id,"*vehicle*")
         loc_vec_2d = vehicles[i].get_location()
         loc_vec_2d.z = 0
         if len(paths[i]) > 0 and (loc_vec_2d - paths[i][0]).length() < threshold:
@@ -229,15 +230,21 @@ def execute_vehicle_behaviour(vehicle_paths: List[Tuple[carla.Actor,List[carla.L
             forward_vec = vehicles[i].get_transform().get_forward_vector()
             # print(vehicles[i].get_location())
             dir_to_point = paths[i][0] - loc_vec_2d
-            forward_vec.z = 0
-            dir_to_point.z = 0
-            dir_to_point = dir_to_point / dir_to_point.length()
-            steer = (1 - dot2d(forward_vec,dir_to_point))
-            if dot2d(vehicles[i].get_transform().get_right_vector(),dir_to_point) < 0:
-                steer *= -1
-            vehicles[i].apply_control(carla.VehicleControl(throttle=0.6,steer=steer))
+            if is_vehicle:
+                forward_vec.z = 0
+                dir_to_point.z = 0
+                dir_to_point = dir_to_point / dir_to_point.length()
+                steer = (1 - dot2d(forward_vec,dir_to_point))
+                if dot2d(vehicles[i].get_transform().get_right_vector(),dir_to_point) < 0:
+                    steer *= -1
+                vehicles[i].apply_control(carla.VehicleControl(throttle=0.6,steer=steer))
+            else:
+                vehicles[i].apply_control(carla.WalkerControl(direction=dir_to_point,speed=0.1))
         else:
-            vehicles[i].apply_control(carla.VehicleControl(brake=1))
+            if is_vehicle:
+                vehicles[i].apply_control(carla.VehicleControl(brake=1))
+            else:
+                vehicles[i].apply_control(carla.WalkerControl())
 
 def execute_ego_behaviour(ego_vehicle):
     ego_vehicle.apply_control(carla.VehicleControl(throttle=random.uniform(0,1),steer=random.uniform(-1,1)))
