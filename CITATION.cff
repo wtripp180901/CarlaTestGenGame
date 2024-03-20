@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Tripp"
+  given-names: "William"
+title: "CARLA Test Generation Game"
+date-released: 2024-05-09
+url: "https://github.com/wtripp180901/CarlaTestGenGame"
