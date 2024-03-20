@@ -30,7 +30,7 @@ def game_setup_loop(screen,spectator,world,map):
     last_placed_vehicle = None
     camera_speed = 0.25
     spectator_rotation = carla.Rotation(pitch=-90)
-    spectator.set_transform(carla.Transform(map.get_spawn_points()[0].location + carla.Vector3D(0,0,50),spectator_rotation))
+    spectator_pos = map.get_spawn_points()[20].location + carla.Vector3D(0,0,30)
     
     vehicle_paths = []
     current_path = []
@@ -47,7 +47,8 @@ def game_setup_loop(screen,spectator,world,map):
             move_vec.y = -1 * camera_speed
         if keys_pressed[pygame.K_RIGHT]:
             move_vec.y = 1 * camera_speed
-        spectator.set_transform(carla.Transform(spectator.get_location() + move_vec,spectator_rotation))
+        spectator_pos = spectator_pos + move_vec
+        spectator.set_transform(carla.Transform(spectator_pos,spectator_rotation))
 
         cursor_location = spectator.get_location()
         cursor_location.z = 1
@@ -98,9 +99,7 @@ def game_setup_loop(screen,spectator,world,map):
             world.debug.draw_line(p,p + carla.Vector3D(0,0,5),thickness=0.5,color=carla.Color(0,0,255),life_time=0.02)
 
         screen.fill((255,255,255))
-        for i in range(len(instruction_txts)):
-            instruction_txts[i] = font.render(instructions[i],True,(0,0,0),None)
-            screen.blit(instruction_txts[i],instruction_txt_rects[i])
+        render_instructions(screen,font,instructions,instruction_txts,instruction_txt_rects)
         if ego_vehicle_placed:
             vehicle_display_rect.center = (320,240)
             screen.blit(vehicle_display_txt,vehicle_display_rect)
@@ -127,3 +126,98 @@ def place_vehicle(blueprint_id,location,world,map,is_ego=False):
     return world.try_spawn_actor(bp,
                                 reversed_spawn(carla.Transform(location,map.get_waypoint(location).transform.rotation))
                                 )
+
+def render_instructions(screen,font,instructions,instruction_txts,instruction_txt_rects):
+    for i in range(len(instruction_txts)):
+        instruction_txts[i] = font.render(instructions[i],True,(0,0,0),None)
+        screen.blit(instruction_txts[i],instruction_txt_rects[i])
+
+def world_settings_loop(screen,client,current_world):
+    font = pygame.font.SysFont("ComicSans.tff",32)
+    instructions, instruction_txts, instruction_rects = set_instruction_texts(font,["Use up and down keys to select parameter",
+                                                                                    "Use left and right keys to set value",
+                                                                                    "Press ENTER to finish"])
+    parameter_names = ["Map",
+                       "Rain",
+                       "Puddles",
+                       "Time",
+                       "Cloudiness"]
+    parameter_display_values = [["Town","Urban"],
+                                 ["None","Light","Medium","Heavy","Very Heavy"],
+                                 ["None","Low","Medium","High","Very High"],
+                                 ["Day","Sunrise","Sunset","Night"],
+                                 ["None","Low","Medium","High","Very High"]
+                                 ]
+    parameter_values = [["Town01_Opt","Town10HD_Opt"],
+                        [0,25,50,75,100],
+                        [0,25,50,75,100],
+                        [90,5,175,-90],
+                        [0,25,50,75,100]
+                        ]
+    indices = [0,0,0,0,0]
+    
+    row = 0
+
+    parameter_texts = [font.render("Map: Town",True,(255,0,0),None),
+                       font.render("Rain: None",True,(0,0,0),None),
+                       font.render("Puddles: None",True,(0,0,0),None),
+                       font.render("Time: Day",True,(0,0,0),None),
+                       font.render("Cloudiness: None",True,(0,0,0),None)]
+    parameter_rects = []
+    for i in range(len(parameter_texts)):
+        parameter_rects.append(parameter_texts[i].get_rect())
+        parameter_rects[i].center = (320,156 + 18 * i)
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+            if event.type == pygame.KEYDOWN:
+                parameter_texts[row] = font.render(parameter_names[row]+": "+str(parameter_display_values[row][indices[row]]),True,(0,0,0))
+                
+                if event.key == pygame.K_UP:
+                    row -= 1
+                    if row < 0:
+                        row = len(parameter_names) - 1
+                if event.key == pygame.K_DOWN:
+                    row += 1
+                    if row >= len(parameter_names):
+                        row = 0
+                if event.key == pygame.K_LEFT:
+                    indices[row] -= 1
+                    if indices[row] < 0:
+                        indices[row] = len(parameter_values[row]) - 1
+                if event.key == pygame.K_RIGHT:
+                    indices[row] += 1
+                    if indices[row] >= len(parameter_values[row]):
+                        indices[row] = 0
+                if event.key == pygame.K_RETURN:
+                    running = False
+
+                parameter_texts[row] = font.render(parameter_names[row]+": "+str(parameter_display_values[row][indices[row]]),True,(255,0,0))
+
+        screen.fill((255,255,255))
+        for i in range(len(instruction_txts)):
+            screen.blit(instruction_txts[i],instruction_rects[i])
+        for i in range(len(parameter_texts)):
+            screen.blit(parameter_texts[i],parameter_rects[i])
+        pygame.display.update()
+
+    # Saves from long load
+    world = None
+    if "Carla/Maps/"+parameter_values[0][indices[0]] == current_world.get_map().name:
+        world = current_world
+    else:
+        world = client.load_world(parameter_values[0][indices[0]])
+        
+    weather_params = carla.WeatherParameters(
+        precipitation = parameter_values[1][indices[1]],
+        precipitation_deposits = parameter_values[2][indices[2]],
+        sun_altitude_angle = parameter_values[3][indices[3]],
+        cloudiness = parameter_values[4][indices[4]]
+    )
+    world.set_weather(weather_params)
+    return world
+        

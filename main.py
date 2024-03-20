@@ -40,13 +40,21 @@ def main():
     quads = None
     
     client = carla.Client('localhost', 2000)
-    client.set_timeout(10)
+    client.set_timeout(25)
     world, is_test_scenario = test_setup.setupForTest(args.scenario,client)
+
+    pygame.init()
+    screen = pygame.display.set_mode((640,480))
+
+    if not is_test_scenario:
+        kill_list = [a for a in world.get_actors() if fnmatch(a.type_id,"*walker*") or fnmatch(a.type_id,"*vehicle*") or fnmatch(a.type_id,"*sensor*")]
+        for a in kill_list:
+            a.destroy()
+        world = game_setup.world_settings_loop(screen,client,world)
+
     world_state = WorldState(world)
     map = world.get_map()
     spectator = world.get_spectator()
-    pygame.init()
-    screen = pygame.display.set_mode((640,480))
 
     vehicle_paths = []
     if not is_test_scenario:
