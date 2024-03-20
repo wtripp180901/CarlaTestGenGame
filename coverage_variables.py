@@ -10,6 +10,14 @@ class CoverageVariable(Enum):
     SPEED_LIMIT = 6
     ROAD_GRAPH = 7
     EMERGENCY_VEHICLE_STATUS = 8
+    CLOUD = 9
+    TIME_OF_DAY = 10
+
+class TimesOfDay(Enum):
+    NIGHT = 0
+    SUNRISE = 1
+    DAY = 2
+    SUNSET = 3
 
 class EmergencyVehicleStatus(Enum):
     ABSENT = 0

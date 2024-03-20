@@ -2,6 +2,7 @@ from typing import List
 import pygame
 import carla
 from test_setup import reversed_spawn
+from fnmatch import fnmatch
 
 def game_setup_loop(screen,spectator,world,map):
     
@@ -66,6 +67,8 @@ def game_setup_loop(screen,spectator,world,map):
                                 vehicle_paths.append((last_placed_vehicle,current_path))
                             last_placed_vehicle = placed_vehicle
                             current_path = []
+                            if fnmatch(vehicle_blueprint_ids[vehicle_index],"*police*"):
+                                placed_vehicle.set_light_state(carla.VehicleLightState.Special1)
                     else:
                         place_vehicle("vehicle.tesla.cybertruck",cursor_location,world,map,is_ego=True)
                         ego_vehicle_placed = True

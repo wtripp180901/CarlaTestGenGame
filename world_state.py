@@ -18,7 +18,9 @@ class WorldState:
             (CoverageVariable.ROAD_GRAPH,RoadGraphs),
             (CoverageVariable.PEDESTRIAN_DENSITY,Levels),
             (CoverageVariable.VEHICLE_DENSITY,Levels),
-            (CoverageVariable.EMERGENCY_VEHICLE_STATUS,EmergencyVehicleStatus)
+            (CoverageVariable.EMERGENCY_VEHICLE_STATUS,EmergencyVehicleStatus),
+            (CoverageVariable.CLOUD, Levels),
+            (CoverageVariable.TIME_OF_DAY,TimesOfDay)
         ]
         )
         self._last_road_graph_string = "TTTT"
@@ -42,7 +44,9 @@ class WorldState:
             (CoverageVariable.ROAD_GRAPH, RoadGraphs[self._last_road_graph_string]),
             (CoverageVariable.VEHICLE_DENSITY, get_density_level(get_actor_density(non_ego_vehicles,ego_vehicle.get_location(),25))),
             (CoverageVariable.PEDESTRIAN_DENSITY, get_density_level(get_actor_density(self.world.get_actors().filter("*walker*"),ego_vehicle.get_location(),25))),
-            (CoverageVariable.EMERGENCY_VEHICLE_STATUS,emergency_vehicle_status)
+            (CoverageVariable.EMERGENCY_VEHICLE_STATUS,emergency_vehicle_status),
+            (CoverageVariable.CLOUD,getWeatherLevel(self.world.get_weather().cloudiness)),
+            (CoverageVariable.TIME_OF_DAY,get_time_of_day(self.world))
         ]
         return enumerated_vars
 
@@ -145,6 +149,17 @@ def get_emergency_vehicle_status(world):
         return EmergencyVehicleStatus.PRESENT, []
     else:
         return EmergencyVehicleStatus.ABSENT, []
+
+def get_time_of_day(world):
+    sun_angle = world.get_weather().sun_altitude_angle
+    if sun_angle > -10 and sun_angle <= 20:
+        return TimesOfDay.SUNRISE
+    elif sun_angle > 10 and sun_angle < 160:
+        return TimesOfDay.DAY
+    elif sun_angle >= 160 and sun_angle < 190:
+        return TimesOfDay.SUNSET
+    else:
+        return TimesOfDay.NIGHT
 
 def get_actor_density(full_actor_list,ego_pos,distance):
     return len([e for e in full_actor_list if (e.get_location() - ego_pos).length() < distance])/(3.14 * distance * distance)
