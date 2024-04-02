@@ -15,21 +15,19 @@ class CoverageStates(Enum):
 
 class CoverageVariableSet:
     # enumerations should be of type List[(CoverageVariable,Enum)] specifying the variable key and type of enum expected
-    def __init__(self,qualitative: List[Tuple[CoverageVariable,Enum]]):
-        self.qualitative = qualitative
-        self.macro_bin_count = 1
-        for e in [v[1] for v in qualitative]:
-            self.macro_bin_count *= len(e)
+    def __init__(self,variables: List[Tuple[CoverageVariable,Enum]]):
+        self.variables = variables
 
+    # Returns concrete enum for coverage variable (first instance)
     def get_enum_of_variable(self,variable: CoverageVariable):
-        return next(x[1] for x in self.qualitative if x[0] == variable)
+        return next(x[1] for x in self.variables if x[0] == variable)
 
     def get_coverage_entry_key(self,parameterised_enumerations: List[Tuple[CoverageVariable,Enum]]):
-        entry = [None for _ in range(len(self.qualitative))]
-        assert(len(parameterised_enumerations) == len(self.qualitative))
+        entry = [None for _ in range(len(self.variables))]
+        assert(len(parameterised_enumerations) == len(self.variables))
         for e in parameterised_enumerations:
-            var_name_index = [v[0] for v in self.qualitative].index(e[0])
-            if type(e[1]) is self.qualitative[var_name_index][1]:
+            var_name_index = [v[0] for v in self.variables].index(e[0])
+            if type(e[1]) is self.variables[var_name_index][1]:
                 entry[var_name_index] = e[1]
             else:
                 raise Exception("Incorrect type")
@@ -41,9 +39,8 @@ class Coverage:
         self.coverage_variable_set = coverage_variable_set
         self.micro_bin_ids = [get_micro_bin_id(a) for a in assertions]
         self.micro_bin_count = len(assertions)
-        self.total_size = self.micro_bin_count * self.coverage_variable_set.macro_bin_count
+        self.total_size = self.get_total_size(assertions,self.coverage_variable_set)
         self.coverage_file_path = coverage_file_path
-        self.restrict_coverage_space(assertions)
 
         if os.path.isfile(coverage_file_path):
             self._covered_cases = self.parse_coverage_file()
@@ -59,28 +56,18 @@ class Coverage:
             covered += len([micro_case for micro_case in macro_case if (micro_case == CoverageStates.COVERED or micro_case == CoverageStates.BUG)])
         return self.total_size, violated, covered
     
-    def restrict_coverage_space(self,assertions: List[assertion.Assertion]):
-        qual_vars = [v[0] for v in self.coverage_variable_set.qualitative]
-        for req in [a.validityRequirements for a in assertions]:
-            if req != None:
-                if req.absent_variables != None:
-                    for v in req.absent_variables:
-                        i = qual_vars.index(v)
-                        var_width = len(self.coverage_variable_set.qualitative[i][1])
-                        self.total_size -= (var_width - len(req.absent_variables[v])) * (self.coverage_variable_set.macro_bin_count / var_width)
-                if req.present_variables != None:
-                    cum_var_width = 1
-                    cum_valid_cases = 1
-                    for v in req.present_variables:
-                        i = qual_vars.index(v)
-                        var_width = len(self.coverage_variable_set.qualitative[i][1])
-                        cum_var_width *= var_width
-                        cum_valid_cases *= len(req.present_variables[v])
-                        if not req.all_present_required:
-                            self.total_size -= len(req.present_variables[v]) * (self.coverage_variable_set.macro_bin_count / var_width)
-                    if req.all_present_required:
-                        self.total_size -= cum_valid_cases * (self.coverage_variable_set.macro_bin_count / cum_var_width)
-        self.total_size = int(self.total_size)
+    def get_total_size(self,assertions: List[assertion.Assertion],coverage_set: CoverageVariableSet):
+        size = 0
+        for a in assertions:
+            macro_bins_for_assertion = 1
+            for cov_var in coverage_set.variables:
+                if a.validityRequirements == None or not (cov_var[0] in a.validityRequirements.required_variables):
+                    macro_bins_for_assertion *= len(cov_var[1])
+                else:
+                    macro_bins_for_assertion *= len(a.validityRequirements.required_variables[cov_var[0]])
+            size += macro_bins_for_assertion
+        return size
+
 
     def print_coverage(self):
         total, violated, covered = self.get_num_cases()
@@ -157,7 +144,7 @@ class Coverage:
             return self.coverage_variable_set.get_enum_of_variable(CoverageVariable[header_var])[cell]
 
     def get_csv_header(self,include_micro_bins=True):
-        fieldnames = [x[0].name for x in self.coverage_variable_set.qualitative]
+        fieldnames = [x[0].name for x in self.coverage_variable_set.variables]
         if include_micro_bins:
             fieldnames.extend(self.micro_bin_ids)
         return fieldnames
