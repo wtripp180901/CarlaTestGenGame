@@ -27,6 +27,7 @@ class Assertion:
         return self.validityRequirements.is_valid(coverage_state)
 
     def Check(self):
+        precondition_active_last_tick = self.precondition_active_in_tick
         self.precondition_active_in_tick = False
         self.violated_in_tick = False
         
@@ -36,5 +37,5 @@ class Assertion:
         if not self.assertionOracle():
             self.violated = True
             self.violated_in_tick = True
-            if not self.precondition_active_in_tick:
+            if not precondition_active_last_tick:
                 self.zero_value = True

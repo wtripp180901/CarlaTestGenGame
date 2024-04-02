@@ -150,7 +150,7 @@ def main():
                   ),
         Assertion(0,0,
                   "Must stop at traffic lights",
-                  lambda: traffic_light_status[0],
+                  lambda: True,
                   lambda: (ego_vehicle.get_velocity().length() <= 0 or ego_vehicle.get_control().brake > ego_vehicle.get_control().throttle) or not (traffic_light_status[0] and not traffic_light_status[1])
                   ),
         Assertion(0,1,
@@ -226,10 +226,15 @@ def main():
 def execute_vehicle_behaviour(vehicle_paths: List[Tuple[carla.Actor,List[carla.Location]]],world):
     vehicles = [v[0] for v in vehicle_paths]
     paths = [p[1] for p in vehicle_paths]
-    threshold = 4
+    vehicle_threshold = 4
+    human_threshold = 1
 
     for i in range(len(vehicles)):
         is_vehicle = fnmatch(vehicles[i].type_id,"*vehicle*")
+        if is_vehicle:
+            threshold = vehicle_threshold
+        else:
+            threshold = human_threshold
         loc_vec_2d = vehicles[i].get_location()
         loc_vec_2d.z = 0
         if len(paths[i]) > 0 and (loc_vec_2d - paths[i][0]).length() < threshold:
