@@ -65,50 +65,77 @@ class WorldState:
         threshold = 0.1
 
         if junction == None:
-            road_direction = ego_waypoint.next(10)[0].transform.location - ego_waypoint.previous(10)[0].transform.location
+            nextlist = ego_waypoint.next(10)
+            prevlist = ego_waypoint.previous(10)
+            has_two_points = False
+            has_one_point = False
+            if len(nextlist) == 0 and len(prevlist) != 0:
+                road_direction = prevlist[0].transform.location - ego_waypoint.transform.location
+                has_one_point = True
+            elif len(nextlist) != 0 and len(prevlist) == 0:
+                road_direction = nextlist[0].transform.location - ego_waypoint.transform.location
+                has_one_point = True
+            elif len(nextlist) != 0 and len(prevlist) != 0:   
+                road_direction = nextlist[0].transform.location - prevlist[0].transform.location
+                has_two_points = True
+            else:
+                return self._last_road_graph_string
+            
             road_direction = road_direction / road_direction.length()
             directions = [glob_up,glob_down,glob_left,glob_right]
             direction_dots = [dot2d(road_direction,d) for d in directions]
             closest_direction = np.argmax(direction_dots)
 
-            straight = 1 - direction_dots[closest_direction] < threshold
-
-            if closest_direction == 0:
-                down = True
-                if straight:
+            if has_one_point:
+                if closest_direction == 0:
                     up = True
-                else:
-                    if direction_dots[3] > 0:
-                        right = True
-                    else:
-                        left = True
-            elif closest_direction == 1:
-                up = True
-                if straight:
+                if closest_direction == 1:
                     down = True
-                else:
-                    if direction_dots[3] > 0:
+                if closest_direction == 2:
+                    left = True
+                if closest_direction == 3:
+                    right = True
+
+            if has_two_points:
+
+                straight = 1 - direction_dots[closest_direction] < threshold
+
+                if closest_direction == 0:
+                    down = True
+                    if straight:
+                        up = True
+                    else:
+                        if direction_dots[3] > 0:
+                            right = True
+                        else:
+                            left = True
+                elif closest_direction == 1:
+                    up = True
+                    if straight:
+                        down = True
+                    else:
+                        if direction_dots[3] > 0:
+                            right = True
+                        else:
+                            left = True
+                elif closest_direction == 2:
+                    right = True
+                    if straight:
+                        left = True
+                    else:
+                        if direction_dots[0] > 0:
+                            up = True
+                        else:
+                            down = True
+                elif closest_direction == 3:
+                    left = True
+                    if straight:
                         right = True
                     else:
-                        left = True
-            elif closest_direction == 2:
-                right = True
-                if straight:
-                    left = True
-                else:
-                    if direction_dots[0] > 0:
-                        up = True
-                    else:
-                        down = True
-            elif closest_direction == 3:
-                left = True
-                if straight:
-                    right = True
-                else:
-                    if direction_dots[0] > 0:
-                        up = True
-                    else:
-                        down = True
+                        if direction_dots[0] > 0:
+                            up = True
+                        else:
+                            down = True
         else:
             waypoints = junction.get_waypoints(carla.LaneType.Driving)
             entry = waypoints[0][0]
