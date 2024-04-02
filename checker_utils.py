@@ -94,17 +94,24 @@ def american_traffic_light_status(ego_vehicle,map,world):
     else:
         return (False, False)
     
-def locationWithinBoxInFrontOfVehicle(from_vehicle: carla.Actor,location: carla.Location,box_length: float,world):
+def within_box_in_front_of_vehicle(from_vehicle: carla.Actor,other_vehicle: carla.Actor,box_length: float,world):
     
     extents = from_vehicle.bounding_box.extent
     transform = from_vehicle.get_transform()
     centre = transform.location
-    directionVector = transform.get_forward_vector()
+    direction_vector = transform.get_forward_vector()
+
+    other_loc = other_vehicle.get_location()
+    other_bb = other_vehicle.bounding_box.extent
+    points_to_check = [other_loc + carla.Vector3D(other_bb.x,other_bb.y,0),
+                       other_loc + carla.Vector3D(-other_bb.x,other_bb.y,0),
+                       other_loc + carla.Vector3D(-other_bb.x,-other_bb.y,0),
+                       other_loc + carla.Vector3D(other_bb.x,-other_bb.y,0)]
 
     box = carla.BoundingBox(carla.Vector3D(0,0,0),
                             carla.Vector3D((box_length/2),extents.y,2 * extents.z))
-    world.debug.draw_box(carla.BoundingBox(centre + directionVector * (extents.x + box_length/2),carla.Vector3D((box_length/2),extents.y,2 * extents.z)),transform.rotation,life_time=0.1)
-    return box.contains(location,carla.Transform(centre + directionVector * (extents.x + box_length/2),transform.rotation))
+    world.debug.draw_box(carla.BoundingBox(centre + direction_vector * (extents.x + box_length/2),carla.Vector3D((box_length/2),extents.y,2 * extents.z)),transform.rotation,life_time=0.1)
+    return any(box.contains(p,carla.Transform(centre + direction_vector * (extents.x + box_length/2),transform.rotation)) for p in points_to_check)
 
 def stoppingDistance(speed):
     # Stopping distance = thinking distance + braking distance

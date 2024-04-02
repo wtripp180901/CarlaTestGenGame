@@ -99,8 +99,8 @@ def main():
     active_assertions = [
         Assertion(126, 0,
                 "Maintain a safe stopping distance",
-                (lambda: any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(ego_vehicle.get_velocity().length()) + 5,world) for t in other_vehicles_and_pedestrians)),
-                (lambda: not any(locationWithinBoxInFrontOfVehicle(ego_vehicle,t.get_location(),stoppingDistance(ego_vehicle.get_velocity().length()),world) for t in other_vehicles_and_pedestrians))
+                (lambda: any(within_box_in_front_of_vehicle(ego_vehicle,t,stoppingDistance(ego_vehicle.get_velocity().length()) + 5,world) for t in other_vehicles_and_pedestrians)),
+                (lambda: not any(within_box_in_front_of_vehicle(ego_vehicle,t,stoppingDistance(ego_vehicle.get_velocity().length()),world) for t in other_vehicles_and_pedestrians))
                 ),
         Assertion(124, 0,
                 "You must not exceed maximum speed limits",
