@@ -51,11 +51,14 @@ class JunctionStates(Enum):
     ROUNDABOUT = 4
 
 # Returns true if faster than other vehicle, within sensible range and pther vehicle is to the left
-def vehicle_in_overtake_range(ego_vehicle,other_vehicle):
-    vec_to_other = other_vehicle.get_location() - ego_vehicle.get_location()
+def vehicle_in_overtake_range(ego_vehicle,other_vehicle,world):
+    ego_trans = ego_vehicle.get_transform()
+    overtake_distance = 10
+    extents = ego_vehicle.bounding_box.extent
+    box = carla.BoundingBox(carla.Vector3D(0,0,0),carla.Vector3D(overtake_distance,2.5 * extents.y,extents.z))
     return (ego_vehicle.get_velocity().length() > other_vehicle.get_velocity().length() and 
-            vec_to_other.length() < ego_vehicle.bounding_box.extent.y * 7 and
-            dot2d(vec_to_other,ego_vehicle.get_transform().get_right_vector()) < 0
+            (box.contains(other_vehicle.get_location(),carla.Transform(ego_vehicle.get_location() - ego_trans.get_right_vector() * extents.y * 3.5,ego_trans.rotation))
+            or within_box_in_front_of_vehicle(ego_vehicle,other_vehicle,overtake_distance/2 - extents.x,world))
     )
 
 def vehicle_or_pedestrian(actor):

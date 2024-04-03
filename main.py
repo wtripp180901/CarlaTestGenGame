@@ -146,7 +146,7 @@ def main():
                   0,
                   "Stay in the left lane unless safely overtaking",
                   lambda: True,
-                  lambda: not (not_in_left_lane(ego_vehicle,map,junction_status) and not any([vehicle_in_overtake_range(ego_vehicle,v) for v in non_ego_vehicles]))
+                  lambda: not (not_in_left_lane(ego_vehicle,map,junction_status) and not any([vehicle_in_overtake_range(ego_vehicle,v,world) for v in non_ego_vehicles]))
                   ),
         Assertion(0,0,
                   "Must stop at traffic lights",
@@ -176,7 +176,8 @@ def main():
     while True:
 
         if not is_test_scenario:
-            execute_vehicle_behaviour(vehicle_paths,world)
+            if len(other_vehicles_and_pedestrians) > 0:
+                execute_vehicle_behaviour(vehicle_paths,world)
             execute_ego_behaviour(ego_vehicle)
 
         traffic_light_status = american_traffic_light_status(ego_vehicle,map,world)

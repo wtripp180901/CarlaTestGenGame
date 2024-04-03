@@ -91,7 +91,8 @@ def game_setup_loop(screen,spectator,world,map):
                         vehicle_index = len(vehicle_blueprint_ids) - 1
                     vehicle_display_txt = vehicle_font.render(vehicle_display_names[vehicle_index],True,(255,0,0),None)
                 if event.key == pygame.K_RETURN:
-                    current_path.insert(0,last_placed_vehicle.get_location())
+                    if(last_placed_vehicle != None):
+                        current_path.insert(0,last_placed_vehicle.get_location())
                     vehicle_paths.append((last_placed_vehicle,current_path))
                     setting_up_scenario = False
 
