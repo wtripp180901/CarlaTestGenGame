@@ -4,12 +4,13 @@ from validity_requirements import *
 class Assertion:
     def __init__(self,ruleNumber: int,subcase: int,description: str,
                  preconditionOracle: Callable[[], bool],assertionOracle: Callable[[], bool],
-                 validityRequirements: ValidityRequirement = None):
+                 validityRequirements: ValidityRequirement = None,previous_tick_precondition: bool = False):
         self.ruleNumber = ruleNumber
         self.subcase = subcase
         self.description = description
         self.preconditionOracle = preconditionOracle
         self.assertionOracle = assertionOracle
+        self.previous_tick_precondition = previous_tick_precondition
 
         self.covered = False
         self.violated = False
@@ -37,5 +38,6 @@ class Assertion:
         if not self.assertionOracle():
             self.violated = True
             self.violated_in_tick = True
-            if not precondition_active_last_tick:
+            if (self.previous_tick_precondition and not precondition_active_last_tick) or (
+                not self.previous_tick_precondition and not self.precondition_active_in_tick):
                 self.zero_value = True

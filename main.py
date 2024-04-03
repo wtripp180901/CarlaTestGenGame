@@ -100,8 +100,8 @@ def main():
         Assertion(126, 0,
                 "Maintain a safe stopping distance",
                 (lambda: any(within_box_in_front_of_vehicle(ego_vehicle,t,stoppingDistance(ego_vehicle.get_velocity().length()) + 5,world) for t in other_vehicles_and_pedestrians)),
-                (lambda: not any(within_box_in_front_of_vehicle(ego_vehicle,t,stoppingDistance(ego_vehicle.get_velocity().length()),world) for t in other_vehicles_and_pedestrians))
-                ),
+                (lambda: not any(within_box_in_front_of_vehicle(ego_vehicle,t,stoppingDistance(ego_vehicle.get_velocity().length()),world) for t in other_vehicles_and_pedestrians)),
+                previous_tick_precondition=True),
         Assertion(124, 0,
                 "You must not exceed maximum speed limits",
                 (lambda: ego_vehicle.get_speed_limit() != None),
@@ -150,7 +150,7 @@ def main():
                   ),
         Assertion(0,0,
                   "Must stop at traffic lights",
-                  lambda: True,
+                  lambda: traffic_light_status[0],
                   lambda: (ego_vehicle.get_velocity().length() <= 0 or ego_vehicle.get_control().brake > ego_vehicle.get_control().throttle) or not (traffic_light_status[0] and not traffic_light_status[1])
                   ),
         Assertion(0,1,

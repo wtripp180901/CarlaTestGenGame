@@ -103,10 +103,12 @@ def within_box_in_front_of_vehicle(from_vehicle: carla.Actor,other_vehicle: carl
 
     other_loc = other_vehicle.get_location()
     other_bb = other_vehicle.bounding_box.extent
-    points_to_check = [other_loc + carla.Vector3D(other_bb.x,other_bb.y,0),
-                       other_loc + carla.Vector3D(-other_bb.x,other_bb.y,0),
-                       other_loc + carla.Vector3D(-other_bb.x,-other_bb.y,0),
-                       other_loc + carla.Vector3D(other_bb.x,-other_bb.y,0)]
+    other_forward = other_vehicle.get_transform().get_forward_vector()
+    other_right = other_vehicle.get_transform().get_right_vector()
+    points_to_check = [other_loc + other_bb.x * other_forward + other_bb.y * other_right,
+                       other_loc + -other_bb.x * other_forward + other_bb.y * other_right,
+                       other_loc + -other_bb.x * other_forward + -other_bb.y * other_right,
+                       other_loc + other_bb.x * other_forward + -other_bb.y * other_right]
 
     box = carla.BoundingBox(carla.Vector3D(0,0,0),
                             carla.Vector3D((box_length/2),extents.y,2 * extents.z))
