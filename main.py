@@ -101,7 +101,11 @@ def main():
                 "Maintain a safe stopping distance",
                 (lambda: any(within_box_in_front_of_vehicle(ego_vehicle,t,stoppingDistance(ego_vehicle.get_velocity().length()) + 5,world) for t in other_vehicles_and_pedestrians)),
                 (lambda: not any(within_box_in_front_of_vehicle(ego_vehicle,t,stoppingDistance(ego_vehicle.get_velocity().length()),world) for t in other_vehicles_and_pedestrians)),
-                previous_tick_precondition=True),
+                previous_tick_precondition=True,
+                validityRequirements=ValidityRequirement({
+                    CoverageVariable.VEHICLE_DENSITY: [Levels.LOW, Levels.MEDIUM,Levels.HIGH,Levels.VERY_HIGH]
+                }
+                )),
         Assertion(124, 0,
                 "You must not exceed maximum speed limits",
                 (lambda: ego_vehicle.get_speed_limit() != None),
@@ -135,18 +139,19 @@ def main():
                   ),
         Assertion(238,0,
                   "No waiting or parking on yellow or red lines",
-                  lambda: not active_emergency_vehicle_within_distance(ego_vehicle,world,50),
+                  lambda: lane_markings_present(ego_vehicle,map,[carla.LaneMarkingType.Solid,carla.LaneMarkingType.SolidSolid],colors=[carla.LaneMarkingColor.Red,carla.LaneMarkingColor.Yellow]) and not active_emergency_vehicle_within_distance(ego_vehicle,world,50),
                   lambda: not (parked_left(ego_vehicle,map) and no_stopping_line_event_flag)
                   ),
         Assertion(129,0,
                   "Must not cross solid road markings",
-                  lambda: True,
-                  lambda: not no_overtaking_event_flag),
+                  lambda: lane_markings_present(ego_vehicle,map,[carla.LaneMarkingType.Solid,carla.LaneMarkingType.SolidSolid,carla.LaneMarkingType.SolidBroken,carla.LaneMarkingType.BrokenSolid]),
+                  lambda: not (no_overtaking_event_flag and not any([v.get_velocity().length() <= 0 and vehicle_in_overtake_range(ego_vehicle,v,world) for v in non_ego_vehicles]))),
         Assertion(160,
                   0,
                   "Stay in the left lane unless safely overtaking",
-                  lambda: True,
-                  lambda: not (not_in_left_lane(ego_vehicle,map,junction_status) and not any([vehicle_in_overtake_range(ego_vehicle,v,world) for v in non_ego_vehicles]))
+                  lambda: not not_in_left_lane(ego_vehicle,map,junction_status),
+                  lambda: not (not_in_left_lane(ego_vehicle,map,junction_status) and not any([vehicle_in_overtake_range(ego_vehicle,v,world) for v in non_ego_vehicles])),
+                  previous_tick_precondition=True
                   ),
         Assertion(0,0,
                   "Must stop at traffic lights",

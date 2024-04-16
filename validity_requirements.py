@@ -17,5 +17,5 @@ class ValidityRequirement:
                     return False
         return True
 
-IN_JUNCTION_REQUIREMENTS = validityRequirements=ValidityRequirement(
+IN_JUNCTION_REQUIREMENTS = ValidityRequirement(
     {CoverageVariable.ROAD_GRAPH: [RoadGraphs.TTTF,RoadGraphs.TTFT,RoadGraphs.TFTT,RoadGraphs.FTTT,RoadGraphs.TTTT]})

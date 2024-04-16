@@ -3,6 +3,7 @@ from fnmatch import fnmatch
 import carla
 import numpy as np
 from world_state import get_emergency_vehicle_status, dot2d
+from typing import List
 
 class PartitionedJunction:
     def __init__(self,cross_point: carla.Vector3D,right_lane_alignment_vector: carla.Vector3D,past_turning_alignment_vector: carla.Vector3D):
@@ -60,6 +61,15 @@ def vehicle_in_overtake_range(ego_vehicle,other_vehicle,world):
             (box.contains(other_vehicle.get_location(),carla.Transform(ego_vehicle.get_location() - ego_trans.get_right_vector() * extents.y * 3.5,ego_trans.rotation))
             or within_box_in_front_of_vehicle(ego_vehicle,other_vehicle,overtake_distance/2 - extents.x,world))
     )
+
+def lane_markings_present(ego_vehicle: carla.Vehicle,map: carla.Map,marking_types: List[carla.LaneMarkingType],colors: carla.LaneMarkingColor = None):
+    wp = map.get_waypoint(ego_vehicle.get_location())
+    if wp.left_lane_marking.type in marking_types or wp.right_lane_marking.type in marking_types:
+        if colors == None:
+            return True
+        elif wp.left_lane_marking.color in colors or wp.right_lane_marking.color in colors:
+            return True
+    return False
 
 def vehicle_or_pedestrian(actor):
     return fnmatch(actor.type_id,"*vehicle*") or fnmatch(actor.type_id,"*walker*")
