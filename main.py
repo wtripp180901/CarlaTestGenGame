@@ -16,6 +16,7 @@ from game import Game
 from os import linesep
 import game_setup
 from checker_utils import *
+import random
 
 class TestActor:
     def __init__(self):
@@ -33,6 +34,7 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-s","--scenario",default="none")
+    parser.add_argument("-r","--random",action='store_true')
     args = parser.parse_args()
 
     has_junction = False
@@ -50,7 +52,8 @@ def main():
         kill_list = [a for a in world.get_actors() if fnmatch(a.type_id,"*walker*") or fnmatch(a.type_id,"*vehicle*") or fnmatch(a.type_id,"*sensor*")]
         for a in kill_list:
             a.destroy()
-        world = game_setup.world_settings_loop(screen,client,world)
+        if not args.random:
+            world = game_setup.world_settings_loop(screen,client,world)
 
     world_state = WorldState(world)
     map = world.get_map()
@@ -58,7 +61,10 @@ def main():
 
     vehicle_paths = []
     if not is_test_scenario:
-        vehicle_paths = game_setup.game_setup_loop(screen,spectator,world,map)
+        if args.random:
+            vehicle_paths = setup_random_scenario(world,map,spectator)
+        else:
+            vehicle_paths = game_setup.game_setup_loop(screen,spectator,world,map)
 
     ego_vehicle = None
     non_ego_actors = [x for x in world.get_actors()]
@@ -320,6 +326,42 @@ def assertionCheckTick(assertions: List[assertion.Assertion],qualitative_coverag
                     score_change += 1
 
     return score_change, triggered_assertions, covered_assertions, valid_assertions, triggered_descriptions
-                   
+
+def setup_random_scenario(world,map,spectator):
+    
+    weather_params = carla.WeatherParameters(
+        precipitation = random.randrange(0,100),
+        precipitation_deposits = random.randrange(0,100),
+        sun_altitude_angle = random.randrange(-90,180),
+        cloudiness = random.randrange(0,100)
+    )
+    world.set_weather(weather_params)
+    
+    spawns = map.get_spawn_points()
+    ego_bp = world.get_blueprint_library().filter("vehicle.tesla.cybertruck")[0]
+    ego_bp.set_attribute('role_name', 'hero')
+    ego_spawn = test_setup.reversed_spawn(random.choice(spawns))
+    ego = world.spawn_actor(ego_bp,ego_spawn)
+    actor_spawns = [t for t in spawns if (t.location - ego_spawn.location).length() < 25]
+    actor_count = random.randrange(27)
+    print("Spawned",actor_count,"vehicles")
+    vehicle_blueprint_ids = ["vehicle.audi.etron",
+                             "vehicle.chevrolet.impala",
+                             "walker.pedestrian.0001",
+                             "vehicle.harley-davidson.low_rider",
+                             "vehicle.dodge.charger_police",
+                             "vehicle.ford.mustang",
+                             "vehicle.carlamotors.carlacola",
+                             "vehicle.citroen.c3",
+                             "vehicle.diamondback.century"
+                             ]
+    paths = []
+    for i in range(actor_count):
+        actor = world.try_spawn_actor(world.get_blueprint_library().filter(random.choice(vehicle_blueprint_ids))[0],test_setup.reversed_spawn(random.choice(actor_spawns)))
+        if actor != None:
+            paths.append((actor,[random.choice(actor_spawns).location]))
+    spectator.set_transform(carla.Transform(ego.get_location() + carla.Vector3D(0,0,30),carla.Rotation(pitch=-90)))
+    return paths
+
 if __name__ == '__main__':
     main()
