@@ -133,9 +133,10 @@ def main():
                   validityRequirements=IN_JUNCTION_REQUIREMENTS
                 ),
         Assertion(103,0,
-                  "Give signals before manoeuvering",
+                  "Give signals before manoeuvering at junctions",
                   lambda: junction_status != JunctionStates.NONE,
                   lambda: ((ego_vehicle.get_light_state() == carla.VehicleLightState.RightBlinker or not ego_vehicle.get_control().steer > 0) and (ego_vehicle.get_light_state() == carla.VehicleLightState.LeftBlinker or not ego_vehicle.get_control().steer < 0)) or not junction_status != JunctionStates.NONE,
+                  validityRequirements=IN_JUNCTION_REQUIREMENTS
                 ),
         Assertion(219,0,
                   "Stop to let emergency service vehicles pass",
